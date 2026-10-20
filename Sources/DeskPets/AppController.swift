@@ -1,0 +1,324 @@
+import AppKit
+import DeskPetsCore
+
+/// Owns sessions, bindings and pet windows. Sessions come from a process scan every 2.5 s
+/// plus hook records pushed through a directory watcher.
+@MainActor
+final class AppController: ObservableObject {
+    nonisolated static var builtInCharacters: URL? {
+        Bundle.main.resourceURL?.appendingPathComponent("Characters", isDirectory: true)
+    }
+
+    let paths = AppPaths.current()
+    let library: CharacterLibrary
+    @Published private(set) var sessions: [AgentSession] = []
+    @Published private(set) var characters: [CharacterInfo] = []
+    @Published private(set) var config: AppConfig
+    @Published private(set) var hooksInstalled: [Provider: Bool] = [:]
+
+    private var processes: [AgentSession] = []
+    private var records: [HookRecord] = []
+    private var resolved: [UUID: String] = [:]
+    private var pets: [UUID: PetWindowController] = [:]
+    private var scanTimer: Timer?
+    private var watcher: DirectoryWatcher?
+    private var characterWatcher: DirectoryWatcher?
+    private var pendingSave: DispatchWorkItem?
+    private let scanQueue = DispatchQueue(label: "deskpets.scan", qos: .utility)
+    private let scanCache = ClassificationCache()
+    private var scanCount = 0
+
+    init() {
+        library = CharacterLibrary(builtInRoot: Self.builtInCharacters, customRoot: paths.characters)
+        config = AppConfig.load(from: paths.config)
+        try? FileManager.default.createDirectory(at: paths.sessions, withIntermediateDirectories: true,
+                                                 attributes: [.posixPermissions: 0o700])
+        try? FileManager.default.createDirectory(at: paths.characters, withIntermediateDirectories: true)
+        characters = library.list()
+        refreshHookStatus()
+    }
+
+    func start() {
+        watcher = DirectoryWatcher(url: paths.sessions) { [weak self] in self?.reloadRecords() }
+        characterWatcher = DirectoryWatcher(url: paths.characters) { [weak self] in self?.reloadCharacters() }
+        reloadRecords()
+        scan()
+        let timer = Timer(timeInterval: 2.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scan() }
+        }
+        timer.tolerance = 0.5
+        RunLoop.main.add(timer, forMode: .common)
+        scanTimer = timer
+    }
+
+    // MARK: - Sessions
+
+    private func scan() {
+        let directory = paths.sessions
+        let cache = scanCache
+        scanCount += 1
+        let sweep = scanCount % 12 == 1  // about every 30 s
+        scanQueue.async { [weak self] in
+            let found = SessionScanner.scan(cache: cache)
+            if sweep { Self.removeStaleRecords(in: directory) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.processes = found
+                self.refresh()
+            }
+        }
+    }
+
+    private func reloadRecords() {
+        records = HookEvents.readAll(from: paths.sessions)
+        refresh()
+    }
+
+    /// Records of processes that no longer exist are deleted so the folder does not grow forever.
+    nonisolated private static func removeStaleRecords(in directory: URL) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        let now = Date().timeIntervalSince1970
+        for url in files where url.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: url),
+                  let record = try? JSONDecoder().decode(HookRecord.self, from: data) else { continue }
+            let dead = record.pid > 0 ? !ProcessTable.isAlive(record.pid) : now - record.updatedAt > 86_400
+            if dead && now - record.updatedAt > 60 {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private func refresh() {
+        let merged = SessionMerger.merge(processes, records: records)
+        var bindings = config.bindings
+        resolved = BindingResolver.resolve(&bindings, sessions: merged)
+        if bindings != config.bindings {
+            config.bindings = bindings
+            saveSoon()
+        }
+        if merged != sessions {
+            let old = Dictionary(sessions.map { ($0.id, $0.state) }, uniquingKeysWith: { a, _ in a })
+            for session in merged where old[session.id] != session.state {
+                Log.write("state \(session.displayName): \(old[session.id]?.rawValue ?? "new") → \(session.state.rawValue)")
+            }
+            sessions = merged
+        }
+        updatePets()
+    }
+
+    private func updatePets() {
+        let byId = Dictionary(sessions.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var alive = Set<UUID>()
+        for binding in config.bindings {
+            guard let sessionId = resolved[binding.id], let session = byId[sessionId],
+                  let character = characters.first(where: { $0.name == binding.character }) ?? characters.first else { continue }
+            alive.insert(binding.id)
+            let pet = pets[binding.id] ?? makePet(for: binding)
+            pet.update(session: session, character: character, size: CGFloat(config.petSize))
+            if config.showPets { pet.show() } else { pet.hide() }
+        }
+        for (id, pet) in pets where !alive.contains(id) {
+            pet.close()
+            pets[id] = nil
+        }
+    }
+
+    private func makePet(for binding: PetBinding) -> PetWindowController {
+        let size = CGFloat(config.petSize)
+        let origin: CGPoint
+        if let x = binding.x, let y = binding.y {
+            origin = CGPoint(x: x, y: y)
+        } else {
+            let frame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            let slot = CGFloat(pets.count)
+            origin = CGPoint(x: frame.maxX - 40 - size - slot * (size + 16), y: frame.minY + 24)
+        }
+        let pet = PetWindowController(bindingId: binding.id, origin: origin, size: size)
+        pet.onMoved = { [weak self] id, point in self?.petMoved(id, to: point) }
+        pet.menuProvider = { [weak self] id in self?.contextMenu(for: id) ?? NSMenu() }
+        pets[binding.id] = pet
+        Log.write("pet shown for \(binding.provider.rawValue) \(binding.cwd) as \(binding.character)")
+        return pet
+    }
+
+    private func contextMenu(for id: UUID) -> NSMenu {
+        let menu = NSMenu()
+        let characterMenu = NSMenu()
+        let current = config.bindings.first { $0.id == id }?.character
+        for character in characters {
+            let item = ClosureMenuItem(title: character.name) { [weak self] in self?.setCharacter(character.name, for: id) }
+            item.state = character.name == current ? .on : .off
+            characterMenu.addItem(item)
+        }
+        let characterItem = NSMenuItem(title: L.t("Character", "換角色"), action: nil, keyEquivalent: "")
+        characterItem.submenu = characterMenu
+        menu.addItem(characterItem)
+        menu.addItem(ClosureMenuItem(title: L.t("Show Terminal", "切到終端機")) { [weak self] in self?.pets[id]?.activateTerminal() })
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(title: L.t("Unbind", "解除綁定")) { [weak self] in self?.unbind(id) })
+        return menu
+    }
+
+    // MARK: - Bindings
+
+    func binding(for session: AgentSession) -> PetBinding? {
+        config.bindings.first { resolved[$0.id] == session.id }
+    }
+
+    var offlineBindings: [PetBinding] {
+        config.bindings.filter { resolved[$0.id] == nil }
+    }
+
+    /// Binds `character` to the session, or unbinds it when `character` is nil.
+    func setPet(_ character: String?, for session: AgentSession) {
+        if let existing = binding(for: session) {
+            if let character { setCharacter(character, for: existing.id) } else { unbind(existing.id) }
+            return
+        }
+        guard let character else { return }
+        config.bindings.append(PetBinding(provider: session.provider, cwd: session.cwd, character: character,
+                                          pid: session.pid, pidStart: session.startTime))
+        save()
+        refresh()
+    }
+
+    func setCharacter(_ name: String, for id: UUID) {
+        guard let index = config.bindings.firstIndex(where: { $0.id == id }) else { return }
+        config.bindings[index].character = name
+        save()
+        refresh()
+    }
+
+    func unbind(_ id: UUID) {
+        config.bindings.removeAll { $0.id == id }
+        save()
+        refresh()
+    }
+
+    private func petMoved(_ id: UUID, to origin: CGPoint) {
+        guard let index = config.bindings.firstIndex(where: { $0.id == id }) else { return }
+        config.bindings[index].x = origin.x
+        config.bindings[index].y = origin.y
+        saveSoon()
+    }
+
+    func setShowPets(_ show: Bool) {
+        config.showPets = show
+        save()
+        Log.write("show pets: \(show)")
+        refresh()
+    }
+
+    func setPetSize(_ size: Int) {
+        config.petSize = size
+        save()
+        refresh()
+    }
+
+    // MARK: - Characters
+
+    private func reloadCharacters() {
+        let list = library.list()
+        guard list != characters else { return }
+        characters = list
+        refresh()
+    }
+
+    func importCharacter(name: String, idle: URL, working: URL?, waiting: URL?) throws {
+        try library.importCharacter(name: name, idle: idle, working: working, waiting: waiting)
+        characters = library.list()
+    }
+
+    func deleteCharacter(_ character: CharacterInfo) throws {
+        try library.delete(character)
+        characters = library.list()
+        refresh()
+    }
+
+    // MARK: - Hooks
+
+    var hookExecutable: String {
+        Bundle.main.executableURL!.deletingLastPathComponent().appendingPathComponent("deskpets-hook").path
+    }
+
+    func installHooks() throws -> [HookInstaller.Change] {
+        defer { refreshHookStatus() }
+        return try HookInstaller(paths: paths, hookExecutable: hookExecutable).install()
+    }
+
+    func uninstallHooks() throws -> [HookInstaller.Change] {
+        defer { refreshHookStatus() }
+        return try HookInstaller(paths: paths, hookExecutable: hookExecutable).uninstall()
+    }
+
+    func refreshHookStatus() {
+        let installer = HookInstaller(paths: paths, hookExecutable: hookExecutable)
+        hooksInstalled = Dictionary(uniqueKeysWithValues: Provider.allCases.map { ($0, installer.isInstalled($0)) })
+    }
+
+    // MARK: - Persistence
+
+    private func save() {
+        pendingSave?.cancel()
+        pendingSave = nil
+        do {
+            try config.save(to: paths.config)
+        } catch {
+            Log.write("could not save config: \(error.localizedDescription)")
+        }
+    }
+
+    private func saveSoon() {
+        pendingSave?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.save() }
+        }
+        pendingSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+}
+
+/// Fires `onChange` (coalesced) whenever files are added, replaced or removed in a directory.
+final class DirectoryWatcher {
+    private let source: DispatchSourceFileSystemObject
+
+    init?(url: URL, onChange: @escaping @MainActor () -> Void) {
+        let descriptor = open(url.path, O_EVTONLY)
+        guard descriptor >= 0 else { return nil }
+        source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: [.write, .rename, .delete],
+                                                           queue: .main)
+        var pending = false
+        source.setEventHandler {
+            guard !pending else { return }
+            pending = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                pending = false
+                MainActor.assumeIsolated { onChange() }
+            }
+        }
+        source.setCancelHandler { close(descriptor) }
+        source.resume()
+    }
+
+    deinit {
+        source.cancel()
+    }
+}
+
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(title: String, handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: "")
+        target = self
+    }
+
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func run() {
+        handler()
+    }
+}
