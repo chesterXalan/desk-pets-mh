@@ -26,10 +26,13 @@ final class AppController: ObservableObject {
     private var pendingSave: DispatchWorkItem?
     private let scanQueue = DispatchQueue(label: "deskpets.scan", qos: .utility)
     private let scanCache = ClassificationCache()
+    private let namer: SessionNamer
+    private var names: [String: String] = [:]
     private var scanCount = 0
 
     init() {
         library = CharacterLibrary(builtInRoot: Self.builtInCharacters, customRoot: paths.characters)
+        namer = SessionNamer(home: paths.home)
         config = AppConfig.load(from: paths.config)
         try? FileManager.default.createDirectory(at: paths.sessions, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
@@ -56,14 +59,18 @@ final class AppController: ObservableObject {
     private func scan() {
         let directory = paths.sessions
         let cache = scanCache
+        let namer = namer
+        let records = records
         scanCount += 1
         let sweep = scanCount % 12 == 1  // about every 30 s
         scanQueue.async { [weak self] in
             let found = SessionScanner.scan(cache: cache)
+            let names = namer.names(for: found, records: records)  // cached; cheap between refreshes
             if sweep { Self.removeStaleRecords(in: directory) }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.processes = found
+                self.names = names
                 self.refresh()
             }
         }
@@ -89,7 +96,11 @@ final class AppController: ObservableObject {
     }
 
     private func refresh() {
-        let merged = SessionMerger.merge(processes, records: records)
+        let merged = SessionMerger.merge(processes, records: records).map { session in
+            var session = session
+            if let name = names[session.id] { session.title = name }
+            return session
+        }
         var bindings = config.bindings
         resolved = BindingResolver.resolve(&bindings, sessions: merged)
         if bindings != config.bindings {

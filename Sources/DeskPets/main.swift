@@ -1,6 +1,21 @@
 import AppKit
 import DeskPetsCore
 
+// `DeskPets focus-session <pid>` runs the same code as double-clicking that session's pet.
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "focus-session", let pid = Int32(CommandLine.arguments[2]) {
+    guard let session = SessionScanner.scan().first(where: { $0.pid == pid }) else {
+        FileHandle.standardError.write(Data("error: no claude/codex session with pid \(pid)\n".utf8))
+        exit(1)
+    }
+    MainActor.assumeIsolated {
+        TerminalFocus.focus(session) { switched in
+            print(session.cmux == nil ? "activated host app" : (switched ? "switched cmux tab and activated cmux" : "cmux refused; activated app only"))
+            exit(switched ? 0 : 1)
+        }
+    }
+    RunLoop.main.run()
+}
+
 // `DeskPets import-character <name> <idle.gif> [working.gif] [waiting.gif]` imports without the UI.
 let arguments = CommandLine.arguments
 if arguments.count >= 4, arguments[1] == "import-character" {

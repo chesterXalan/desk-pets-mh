@@ -10,10 +10,11 @@ public struct HookRecord: Codable, Equatable, Sendable {
     public var pid: Int32
     public var pidStart: Double
     public var title: String?
+    public var transcriptPath: String?
     public var updatedAt: Double
 
     public init(provider: Provider, sessionId: String, state: PetState, event: String, cwd: String,
-                pid: Int32, pidStart: Double, title: String? = nil, updatedAt: Double) {
+                pid: Int32, pidStart: Double, title: String? = nil, transcriptPath: String? = nil, updatedAt: Double) {
         self.provider = provider
         self.sessionId = sessionId
         self.state = state
@@ -22,6 +23,7 @@ public struct HookRecord: Codable, Equatable, Sendable {
         self.pid = pid
         self.pidStart = pidStart
         self.title = title
+        self.transcriptPath = transcriptPath
         self.updatedAt = updatedAt
     }
 }
@@ -59,6 +61,7 @@ public enum HookEvents {
         let sessionId = clean(payload["session_id"], limit: 128)
         guard !sessionId.isEmpty || agent != nil else { return nil }
         let title = clean(payload["session_title"] ?? payload["title"], limit: 120)
+        let transcript = clean(payload["transcript_path"], limit: 4096)
         return HookRecord(provider: provider,
                           sessionId: sessionId,
                           state: state,
@@ -67,6 +70,7 @@ public enum HookEvents {
                           pid: agent?.pid ?? 0,
                           pidStart: agent?.start ?? 0,
                           title: title.isEmpty ? nil : title,
+                          transcriptPath: transcript.hasPrefix("/") ? transcript : nil,
                           updatedAt: now.timeIntervalSince1970)
     }
 

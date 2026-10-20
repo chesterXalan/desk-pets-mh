@@ -50,9 +50,14 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
     public var state: PetState
     public var sessionId: String?
     public var title: String?
+    /// The cmux tab hosting the session, read from the process environment.
+    public var cmux: CmuxLocation?
+    /// Session id from `--session-id` / `--resume`, used before any hook has fired.
+    public var launchSessionId: String?
 
     public init(provider: Provider, pid: Int32, startTime: Double, cwd: String,
-                state: PetState = .unknown, sessionId: String? = nil, title: String? = nil) {
+                state: PetState = .unknown, sessionId: String? = nil, title: String? = nil,
+                cmux: CmuxLocation? = nil, launchSessionId: String? = nil) {
         self.provider = provider
         self.pid = pid
         self.startTime = startTime
@@ -60,6 +65,8 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
         self.state = state
         self.sessionId = sessionId
         self.title = title
+        self.cmux = cmux
+        self.launchSessionId = launchSessionId
     }
 
     public var id: String { "\(provider.rawValue):\(pid):\(Int(startTime))" }
@@ -69,10 +76,35 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
         return name.isEmpty || name == "/" ? cwd : name
     }
 
+    /// "folder · pid": always unique, shown under the friendly name.
+    public var location: String { "\(folderName) · \(pid)" }
+
+    /// The friendly name (/rename, cmux tab, or AI title) when known, else the location.
     public var displayName: String {
-        var name = "\(folderName) · \(pid)"
-        if let title, !title.isEmpty { name += " — \(title)" }
-        return name
+        if let title, !title.isEmpty { return title }
+        return location
+    }
+}
+
+/// A cmux workspace + surface (tab), taken from CMUX_WORKSPACE_ID / CMUX_SURFACE_ID.
+public struct CmuxLocation: Codable, Equatable, Hashable, Sendable {
+    public var workspaceId: String
+    public var surfaceId: String
+    /// The cmux CLI that launched the session (CMUX_BUNDLED_CLI_PATH), if known.
+    public var cli: String?
+
+    public init(workspaceId: String, surfaceId: String, cli: String? = nil) {
+        self.workspaceId = workspaceId
+        self.surfaceId = surfaceId
+        self.cli = cli
+    }
+
+    public static func from(environment: [String: String]) -> CmuxLocation? {
+        guard let workspace = environment["CMUX_WORKSPACE_ID"], UUID(uuidString: workspace) != nil,
+              let surface = environment["CMUX_SURFACE_ID"] ?? environment["CMUX_PANEL_ID"], UUID(uuidString: surface) != nil
+        else { return nil }
+        let cli = environment["CMUX_BUNDLED_CLI_PATH"].flatMap { $0.hasPrefix("/") ? $0 : nil }
+        return CmuxLocation(workspaceId: workspace, surfaceId: surface, cli: cli)
     }
 }
 

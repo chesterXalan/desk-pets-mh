@@ -25,9 +25,9 @@ private struct SessionsTab: View {
             Table(app.sessions) {
                 TableColumn(L.t("Session", "Session")) { session in
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(verbatim: "\(session.folderName) · \(session.pid)")
-                        if let title = session.title, !title.isEmpty {
-                            Text(title).font(.caption).foregroundStyle(.secondary)
+                        Text(verbatim: session.displayName)
+                        if session.title != nil {
+                            Text(verbatim: session.location).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                     .help(session.cwd)

@@ -19,29 +19,28 @@ public enum ProcessTable {
         size += stride * 32
         var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / stride)
         guard sysctl(&mib, UInt32(mib.count), &procs, &size, nil, 0) == 0 else { return [] }
-        return procs.prefix(size / stride).map { proc in
-            var comm = proc.kp_proc.p_comm
-            let name = withUnsafeBytes(of: &comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
-            let start = proc.kp_proc.p_starttime
-            return ProcessSnapshot(pid: proc.kp_proc.p_pid,
-                                   ppid: proc.kp_eproc.e_ppid,
-                                   startTime: Double(start.tv_sec) + Double(start.tv_usec) / 1_000_000,
-                                   comm: name,
-                                   hasTTY: proc.kp_proc.p_flag & P_CONTROLT != 0 && proc.kp_eproc.e_tdev != -1)
-        }
+        return procs.prefix(size / stride).map(snapshot)
     }
 
-    public static func info(_ pid: Int32) -> ProcessSnapshot? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
-        var comm = info.pbi_comm
+    private static func snapshot(_ proc: kinfo_proc) -> ProcessSnapshot {
+        var comm = proc.kp_proc.p_comm
         let name = withUnsafeBytes(of: &comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
-        return ProcessSnapshot(pid: Int32(info.pbi_pid),
-                               ppid: Int32(info.pbi_ppid),
-                               startTime: Double(info.pbi_start_tvsec) + Double(info.pbi_start_tvusec) / 1_000_000,
+        let start = proc.kp_proc.p_starttime
+        return ProcessSnapshot(pid: proc.kp_proc.p_pid,
+                               ppid: proc.kp_eproc.e_ppid,
+                               startTime: Double(start.tv_sec) + Double(start.tv_usec) / 1_000_000,
                                comm: name,
-                               hasTTY: info.pbi_flags & UInt32(PROC_FLAG_CONTROLT) != 0)
+                               hasTTY: proc.kp_proc.p_flag & P_CONTROLT != 0 && proc.kp_eproc.e_tdev != -1)
+    }
+
+    /// Works for any process, including root-owned ones such as `login` between a terminal and its
+    /// shell, which proc_pidinfo refuses.
+    public static func info(_ pid: Int32) -> ProcessSnapshot? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var proc = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        guard sysctl(&mib, UInt32(mib.count), &proc, &size, nil, 0) == 0, size > 0, proc.kp_proc.p_pid == pid else { return nil }
+        return snapshot(proc)
     }
 
     public static func path(_ pid: Int32) -> String? {
@@ -61,23 +60,42 @@ public enum ProcessTable {
     }
 
     public static func arguments(_ pid: Int32) -> [String] {
+        commandLine(pid).arguments
+    }
+
+    /// argv and environment from KERN_PROCARGS2 (environment as it was at exec time).
+    public static func commandLine(_ pid: Int32) -> (arguments: [String], environment: [String: String]) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
-        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return [] }
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return ([], [:]) }
         var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0, size > 4 else { return [] }
-        let argc = buffer.withUnsafeBytes { $0.load(as: Int32.self) }
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0, size > 4 else { return ([], [:]) }
+        return parseProcArgs(Array(buffer.prefix(size)))
+    }
+
+    /// Layout: argc (Int32), executable path, NUL padding, argc strings, then environment strings.
+    public static func parseProcArgs(_ buffer: [UInt8]) -> (arguments: [String], environment: [String: String]) {
+        let size = buffer.count
+        guard size > 4 else { return ([], [:]) }
+        let argc = buffer.withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
         var index = 4
         while index < size, buffer[index] != 0 { index += 1 }  // executable path
         while index < size, buffer[index] == 0 { index += 1 }  // padding
-        var args: [String] = []
-        while args.count < argc, index < size {
+        var strings: [String] = []
+        while index < size {
             let begin = index
             while index < size, buffer[index] != 0 { index += 1 }
-            args.append(String(decoding: buffer[begin..<index], as: UTF8.self))
+            if index == begin { break }  // an empty string ends the environment block
+            strings.append(String(decoding: buffer[begin..<index], as: UTF8.self))
             index += 1
         }
-        return args
+        let count = min(Int(max(argc, 0)), strings.count)
+        var environment: [String: String] = [:]
+        for entry in strings.dropFirst(count) {
+            guard let equals = entry.firstIndex(of: "=") else { continue }
+            environment[String(entry[..<equals])] = String(entry[entry.index(after: equals)...])
+        }
+        return (Array(strings.prefix(count)), environment)
     }
 
     public static func isAlive(_ pid: Int32) -> Bool {
@@ -116,6 +134,16 @@ public enum AgentClassifier {
         return nil
     }
 
+    /// The session id passed on the command line (`--session-id X`, `--resume X`, `-r X`), if any.
+    public static func sessionId(arguments: [String]) -> String? {
+        for (index, argument) in arguments.enumerated() where index + 1 < arguments.count {
+            if ["--session-id", "--resume", "-r"].contains(argument), UUID(uuidString: arguments[index + 1]) != nil {
+                return arguments[index + 1].lowercased()
+            }
+        }
+        return nil
+    }
+
     /// Filters out daemons, attach clients and headless runs; only interactive sessions get pets.
     public static func isInteractive(arguments: [String]) -> Bool {
         let rest = arguments.dropFirst()
@@ -128,7 +156,14 @@ public enum AgentClassifier {
 
 /// Remembers which processes are agents, so a rescan only reads argv and paths for new processes.
 public final class ClassificationCache: @unchecked Sendable {
-    fileprivate var entries: [Int32: (start: Double, provider: Provider?)] = [:]
+    fileprivate struct Entry {
+        var start: Double
+        var provider: Provider?
+        var cmux: CmuxLocation?
+        var launchSessionId: String?
+    }
+
+    fileprivate var entries: [Int32: Entry] = [:]
 
     public init() {}
 }
@@ -138,26 +173,32 @@ public enum SessionScanner {
     /// Not thread-safe per cache: call it from one serial queue.
     public static func scan(cache: ClassificationCache = ClassificationCache()) -> [AgentSession] {
         let table = ProcessTable.all()
-        var found: [ProcessSnapshot: Provider] = [:]
+        var found: [ProcessSnapshot: ClassificationCache.Entry] = [:]
         var seen = Set<Int32>()
         for process in table where process.hasTTY && AgentClassifier.isCandidate(comm: process.comm) {
             seen.insert(process.pid)
             if let cached = cache.entries[process.pid], cached.start == process.startTime {
-                if let provider = cached.provider { found[process] = provider }
+                if cached.provider != nil { found[process] = cached }
                 continue
             }
-            let arguments = ProcessTable.arguments(process.pid)
-            var provider = AgentClassifier.provider(comm: process.comm, path: ProcessTable.path(process.pid), arguments: arguments)
-            if !AgentClassifier.isInteractive(arguments: arguments) { provider = nil }
-            cache.entries[process.pid] = (process.startTime, provider)
-            if let provider { found[process] = provider }
+            let (arguments, environment) = ProcessTable.commandLine(process.pid)
+            var entry = ClassificationCache.Entry(start: process.startTime, provider: nil)
+            if let provider = AgentClassifier.provider(comm: process.comm, path: ProcessTable.path(process.pid), arguments: arguments),
+               AgentClassifier.isInteractive(arguments: arguments) {
+                entry.provider = provider
+                entry.cmux = CmuxLocation.from(environment: environment)
+                entry.launchSessionId = AgentClassifier.sessionId(arguments: arguments)
+                found[process] = entry
+            }
+            cache.entries[process.pid] = entry
         }
         cache.entries = cache.entries.filter { seen.contains($0.key) }
         // A wrapper (node → codex) shows up twice; keep the innermost, which is the one that runs hooks.
         let parents = Set(found.keys.map(\.ppid))
-        return found.filter { !parents.contains($0.key.pid) }.compactMap { process, provider in
-            guard let cwd = ProcessTable.cwd(process.pid) else { return nil }
-            return AgentSession(provider: provider, pid: process.pid, startTime: process.startTime, cwd: cwd)
+        return found.filter { !parents.contains($0.key.pid) }.compactMap { process, entry in
+            guard let provider = entry.provider, let cwd = ProcessTable.cwd(process.pid) else { return nil }
+            return AgentSession(provider: provider, pid: process.pid, startTime: process.startTime, cwd: cwd,
+                                cmux: entry.cmux, launchSessionId: entry.launchSessionId)
         }.sorted { $0.startTime < $1.startTime }
     }
 

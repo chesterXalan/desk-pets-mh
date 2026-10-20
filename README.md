@@ -17,7 +17,11 @@ under 1 MB, starts in well under a second, and stays near 0% CPU while the pets 
 - One borderless, always-on-top pet per session, visible on every Space and over full-screen apps.
   Drag it anywhere and the position is remembered.
 - Hover a pet to see the session name and state. Double-click it to bring the session's terminal app
-  to the front. Right-click it to change the character or unbind it.
+  to the front; in [cmux](https://cmux.dev) it also switches to the session's workspace and tab.
+  Right-click it to change the character or unbind it.
+- Sessions get readable names: the `/rename` title, else the cmux tab title, else Claude's
+  auto-generated title, else `folder · pid`. Transcripts are read from the end in small chunks and
+  cached, so even 100 MB transcripts cost almost nothing.
 - Finds `claude` and `codex` sessions with `sysctl`/`libproc` every 2.5 s, without forking `ps`.
 - State comes from Claude Code / Codex hooks, pushed to the app through a watched folder (no polling).
 - Bindings follow a session across restarts: same CLI + same working directory re-attaches automatically.
@@ -143,7 +147,8 @@ Desk Pets 是一個 macOS 選單列小工具，在桌面上放幾隻像素小寵
 可以調整顯示大小（64／96／128 px），也可以刪除自訂角色。
 
 **操作**：拖曳寵物可以移動，位置會記住；滑鼠移上去會顯示 session 名稱和狀態；
-雙擊會把那個 session 所在的終端機叫到前景；右鍵可以換角色或解除綁定。
+雙擊會把那個 session 所在的終端機叫到前景（在 cmux 裡會直接切到那個分頁）；右鍵可以換角色或解除綁定。
+session 名稱依序取：`/rename` 取的名字 → cmux 分頁標題 → Claude 自動產生的標題 → 「資料夾 · pid」。
 session 重開後 pid 會變，只要是同一個 CLI、同一個工作目錄，寵物會自動接回去。
 
 **隱私**：完全在本機讀寫，不連網。hook 只記錄 session id、事件、狀態、工作目錄、pid 這些資訊，

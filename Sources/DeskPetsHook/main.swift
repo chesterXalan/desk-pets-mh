@@ -77,9 +77,14 @@ case "pets":
     DistributedNotificationCenter.default().postNotificationName(PetsSwitch.name, object: arguments[1], userInfo: nil,
                                                                  deliverImmediately: true)
 case "list":
-    let sessions = SessionMerger.merge(SessionScanner.scan(), records: HookEvents.readAll(from: AppPaths.current().sessions))
+    let paths = AppPaths.current()
+    let records = HookEvents.readAll(from: paths.sessions)
+    let sessions = SessionMerger.merge(SessionScanner.scan(), records: records)
+    let names = SessionNamer(home: paths.home).names(for: sessions, records: records)
     for session in sessions {
-        print("\(session.provider.rawValue)\t\(session.pid)\t\(Int(session.startTime))\t\(session.state.rawValue)\t\(session.cwd)")
+        let name = names[session.id] ?? session.location
+        let tab = session.cmux.map { "cmux:\($0.workspaceId)/\($0.surfaceId)" } ?? "-"
+        print("\(session.provider.rawValue)\t\(session.pid)\t\(session.state.rawValue)\t\(name)\t\(session.cwd)\t\(tab)")
     }
 default:
     FileHandle.standardError.write(Data("usage: deskpets-hook record|install|uninstall|list|pets [--provider claude|codex] [--home DIR]\n".utf8))

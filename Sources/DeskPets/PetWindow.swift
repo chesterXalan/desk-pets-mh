@@ -113,7 +113,9 @@ final class PetWindowController: NSObject, NSWindowDelegate {
             animation = next
             restartAnimation()
         }
-        bubble.text = "\(session.displayName)\n\(session.provider.rawValue) · \(stateName(session.state))"
+        bubble.text = session.title == nil
+            ? "\(session.location)\n\(session.provider.rawValue) · \(stateName(session.state))"
+            : "\(session.displayName)\n\(session.location) · \(stateName(session.state))"
     }
 
     func show() {
@@ -136,16 +138,9 @@ final class PetWindowController: NSObject, NSWindowDelegate {
         panel.close()
     }
 
-    /// Brings the terminal app that hosts the session to the front by walking up its process ancestors.
     func activateTerminal() {
         guard let session else { return }
-        for process in ProcessTable.ancestors(of: session.pid) {
-            if let app = NSRunningApplication(processIdentifier: process.pid), app.activationPolicy == .regular {
-                app.activate()
-                return
-            }
-        }
-        NSSound.beep()
+        TerminalFocus.focus(session)
     }
 
     private func restartAnimation() {
