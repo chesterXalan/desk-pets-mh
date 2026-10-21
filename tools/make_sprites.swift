@@ -1,4 +1,4 @@
-// Generates the built-in pixel-art characters (cat, ghost) as GIFs.
+// Generates the built-in pixel-art characters (cat, ghost, bread) as GIFs.
 // Usage: swift tools/make_sprites.swift Resources/Characters
 // The art is drawn entirely by this script and ships under the project's MIT license.
 
@@ -99,6 +99,10 @@ let ghostBody: UInt32 = 0xF4_F0_FF_FF
 let ghostShade: UInt32 = 0xD8_CF_F5_FF
 let accent: UInt32 = 0xFF_9F_1C_FF
 let blue: UInt32 = 0x4C_8D_F6_FF
+let breadBody: UInt32 = 0xF5_E6_BE_FF
+let breadShade: UInt32 = 0xDE_C6_92_FF
+let breadFeet: UInt32 = 0x9C_5E_32_FF
+let breadInk: UInt32 = 0x5C_3B_24_FF
 
 func bubble(_ canvas: inout Canvas, mark: String) {
     canvas.rect(23, 1, 8, 8, white)
@@ -211,6 +215,54 @@ func ghost(dy: Int, dx: Int = 0, phase: Int, mouth: Bool = false, focused: Bool 
     return c
 }
 
+// MARK: - Bread
+
+/// A croissant plush: five puffy lobes, tiny face, brown feet. `squash` flattens it a pixel.
+func bread(dy: Int = 0, squash: Int = 0, blink: Bool = false, feet: (Int, Int) = (0, 0)) -> Canvas {
+    var c = Canvas()
+    let y = Double(dy + squash)
+    let s = Double(squash)
+    // Feet first so the body overlaps their tops.
+    c.rect(10, 26 - feet.0, 4, 3, breadFeet)
+    c.rect(18, 26 - feet.1, 4, 3, breadFeet)
+    // Lobes from the curled tips inwards: (center x, center y, rx, ry).
+    let lobes: [(Double, Double, Double, Double)] = [
+        (4, 21, 3, 4.5), (28, 21, 3, 4.5),
+        (8.5, 18.5, 4.5, 6.5), (23.5, 18.5, 4.5, 6.5),
+        (16, 17, 7, 8.5),
+    ]
+    for (cx, cy, rx, ry) in lobes {
+        c.ellipse(16 + (cx - 16) * (1 + s * 0.04), cy + y, rx, ry - s, breadBody)
+    }
+    // A flat underside like the plush sitting on a pillow.
+    c.rect(5, 19 + dy + squash, 22, 6 - squash, breadBody)
+    c.outline(breadInk)
+    // Dents and short seams where the lobes meet, so the silhouette reads as a croissant.
+    let top = dy + squash
+    for (x, y0, len) in [(6, 15, 3), (9, 11, 5), (22, 11, 5), (25, 15, 3)] {
+        c.set(x, y0 + top, breadInk)
+        c.rect(x, y0 + top + 1, 1, len - squash, breadShade)
+    }
+    // The little stitched smile on top.
+    c.stamp(["#..#", ".##."], 14, 11 + top, breadShade)
+    // Face.
+    let eyeY = 16 + top
+    if blink {
+        c.rect(13, eyeY + 1, 2, 1, breadInk)
+        c.rect(17, eyeY + 1, 2, 1, breadInk)
+    } else {
+        c.rect(13, eyeY, 2, 2, breadInk)
+        c.rect(17, eyeY, 2, 2, breadInk)
+        c.set(13, eyeY, white)
+        c.set(17, eyeY, white)
+    }
+    c.set(15, eyeY + 2, breadInk)
+    c.set(16, eyeY + 2, breadInk)
+    // "Bread" embroidery, abbreviated to a squiggle.
+    c.stamp(["#.#.#", ".#.#."], 13, eyeY + 4, breadShade)
+    return c
+}
+
 // MARK: - Output
 
 let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "Resources/Characters", isDirectory: true)
@@ -240,3 +292,20 @@ writeGIF((0..<4).map { frame in
     if frame != 3 { bubble(&c, mark: "?") }
     return (c, 0.22)
 }, to: root.appendingPathComponent("ghost/waiting.gif"))
+
+writeGIF([
+    (bread(), 0.4), (bread(squash: 1), 0.4), (bread(), 0.4),
+    (bread(squash: 1), 0.4), (bread(blink: true), 0.15), (bread(), 0.6),
+], to: root.appendingPathComponent("bread/idle.gif"))
+writeGIF((0..<4).map { frame in
+    var c = bread(dy: frame % 2 == 0 ? 0 : -1, feet: [(1, 0), (0, 0), (0, 1), (0, 0)][frame])
+    // Fresh-from-the-oven steam.
+    let steam = [[(8, 4), (9, 3)], [(9, 2), (22, 4)], [(23, 3), (8, 1)], [(23, 1), (14, 2)]][frame]
+    for (x, y) in steam { c.rect(x, y, 1, 2, breadShade) }
+    return (c, 0.14)
+}, to: root.appendingPathComponent("bread/working.gif"))
+writeGIF((0..<4).map { frame in
+    var c = bread(dy: frame % 2 == 0 ? 0 : -1, squash: frame == 3 ? 1 : 0)
+    if frame != 3 { bubble(&c, mark: "?") }
+    return (c, 0.22)
+}, to: root.appendingPathComponent("bread/waiting.gif"))

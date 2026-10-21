@@ -25,7 +25,7 @@ under 1 MB, starts in well under a second, and stays near 0% CPU while the pets 
 - Finds `claude` and `codex` sessions with `sysctl`/`libproc` every 2.5 s, without forking `ps`.
 - State comes from Claude Code / Codex hooks, pushed to the app through a watched folder (no polling).
 - Bindings follow a session across restarts: same CLI + same working directory re-attaches automatically.
-- Custom characters from your own GIFs. Two original built-in characters: a cat and a ghost.
+- Custom characters from your own GIFs. Three original built-in characters: a cat, a ghost and a croissant plush (bread).
 
 | State | Meaning | Hook events |
 | --- | --- | --- |
