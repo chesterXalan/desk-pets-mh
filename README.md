@@ -127,7 +127,7 @@ while a pet is hidden or fully covered.
 
 ## Acknowledgements
 
-Inspired by Evan's agent-pets.
+Inspired by agent-pets, made by my great coworker Evan.
 
 ## License
 
@@ -160,4 +160,4 @@ session 重開後 pid 會變，只要是同一個 CLI、同一個工作目錄，
 **隱私**：完全在本機讀寫，不連網。hook 只記錄 session id、事件、狀態、工作目錄、pid 這些資訊，
 不會記錄你的對話內容。
 
-**致謝**：靈感來自 Evan 的 agent-pets。
+**致謝**：靈感來自好同事 Evan 的 agent-pets。
