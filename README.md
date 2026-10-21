@@ -6,10 +6,9 @@ session and shows at a glance whether that session is **working**, **waiting for
 A native Swift/AppKit menu bar app, built for people who run a dozen agent sessions at once:
 under 1 MB, starts in well under a second, and stays near 0% CPU while the pets play.
 
-<!-- TODO: add docs/screenshot.png (pets on a desktop) and show it here. -->
-> 📸 *Screenshot coming soon.*
+![Built-in characters: cat, ghost and bread, each idle · working · waiting](docs/characters.png)
 
-![Built-in characters](docs/characters.png)
+*Built-in characters, left to right: idle · working · waiting.*
 
 ## Features
 
@@ -36,8 +35,15 @@ under 1 MB, starts in well under a second, and stays near 0% CPU while the pets 
 
 ## Install
 
-**Download** `DeskPets.app` from the Releases page and drag it to `/Applications`.
-The app is ad-hoc signed, so the first time you open it, right-click → **Open**.
+**Download** `DeskPets.zip` from the [Releases](https://github.com/youngOman/desk-pets/releases) page,
+unzip it and drag `DeskPets.app` to `/Applications`. Requires an Apple Silicon Mac on macOS 14 or later.
+
+The app is ad-hoc signed (no paid Apple developer certificate), so macOS blocks it the first time.
+Either open **System Settings → Privacy & Security** and click **Open Anyway**, or run:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/DeskPets.app
+```
 
 **Or build it yourself** (macOS 14+, Swift 6 toolchain; the Command Line Tools are enough, no Xcode needed):
 
@@ -136,7 +142,7 @@ Desk Pets 是一個 macOS 選單列小工具，在桌面上放幾隻像素小寵
 一眼就能看出它是「工作中」、「等你回覆」還是「閒置」。原生 Swift／AppKit 寫成，App 不到 1 MB，啟動不到一秒，
 寵物播動畫時 CPU 幾乎是 0%。
 
-**安裝**：下載 `DeskPets.app` 放進「應用程式」（第一次開啟請按右鍵 →「打開」），或自己執行 `make app` 建置。
+**安裝**：到 [Releases](https://github.com/youngOman/desk-pets/releases) 下載 `DeskPets.zip`，解壓後把 `DeskPets.app` 拖進「應用程式」（需要 Apple Silicon、macOS 14 以上）。第一次開啟會被系統擋下：到「系統設定 → 隱私權與安全性」按「強制打開」，或執行 `xattr -dr com.apple.quarantine /Applications/DeskPets.app`。也可以自己執行 `make app` 建置。
 
 **安裝 hooks**：選單列的爪子圖示 →「管理…」→「Hooks」→「安裝 hooks」，然後重開 session。
 程式會把設定合併進 `~/.claude/settings.json` 和 `~/.codex/hooks.json`，保留你原本的 hooks，
