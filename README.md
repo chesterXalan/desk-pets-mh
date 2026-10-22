@@ -4,7 +4,7 @@ Monster Hunter desktop companions for Claude Code and Codex on macOS, built with
 Each pet follows a CLI session and animates when it is working, waiting for input, or idle.
 
 - English, Traditional Chinese, and Japanese UI and monster names
-- Adjustable animation speed and size, saved automatically
+- Adjustable animation speed and size (64–256 px), saved automatically
 - Drag pets anywhere; double-click to focus their terminal, including tmux panes and cmux tabs
 - Import custom GIF characters or add monsters from PNG frames
 
@@ -31,9 +31,13 @@ Copy `build/DeskPets.app` to `/Applications` and open it.
 The language follows macOS by default, with manual English / 繁體中文 / 日本語 selection.
 Animation duration applies to a complete loop: four frames at 1.2 seconds means 0.3 seconds per frame.
 Settings apply immediately. Turn off the duration override to use each GIF's original timing.
+Size is the base display size; per-character scale adjustments keep monsters visually balanced.
 
-Double-click a pet or choose **Show Terminal** to focus its session. With multiple native Ghostty tabs,
-you may still need to select the tab hosting the tmux client.
+Double-click a pet or choose **Show Terminal** to focus its session. For native Ghostty tabs, Ghostty 1.3+
+and macOS Automation permission are required. DeskPets matches the session's working directory; if several
+terminals use that directory, it asks you to select the tab manually. See [Ghostty's AppleScript API](https://ghostty.org/docs/features/applescript).
+For tmux, the pane is selected through tmux; with multiple native Ghostty tabs, you may still need to
+select the tab hosting the tmux client.
 
 ## Add characters
 

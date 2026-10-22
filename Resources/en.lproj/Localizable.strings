@@ -63,3 +63,9 @@
 "error.builtIn" = "Built-in characters cannot be deleted.";
 "error.jsonObject" = "%@ is not a JSON object; nothing was changed.";
 "error.hooksLayout" = "%@ has an unexpected \"hooks\" layout; nothing was changed.";
+
+"error.terminalFocus" = "Could not focus the terminal";
+"error.ghosttyPermission" = "Allow DeskPets to control Ghostty in System Settings → Privacy & Security → Automation, then try again.";
+"error.ghosttyUnavailable" = "Ghostty did not respond to automation. Use Ghostty 1.3 or later, enable AppleScript support, and try again.";
+"error.ghosttyNotFound" = "No Ghostty terminal reports this session’s working directory. Select the tab manually and check that Ghostty shell integration is enabled.";
+"error.ghosttyAmbiguous" = "Several Ghostty terminals use this working directory. Select the tab manually; Ghostty 1.3 does not expose the process ID needed to tell them apart.";

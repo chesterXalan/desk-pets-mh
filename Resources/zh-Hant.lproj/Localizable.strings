@@ -63,3 +63,9 @@
 "error.builtIn" = "無法刪除內建角色。";
 "error.jsonObject" = "%@ 不是 JSON 物件，未進行修改。";
 "error.hooksLayout" = "%@ 的 hooks 格式不符，未進行修改。";
+
+"error.terminalFocus" = "無法切換到終端";
+"error.ghosttyPermission" = "請到「系統設定 → 隱私權與安全性 → 自動化」，允許 DeskPets 控制 Ghostty，再試一次";
+"error.ghosttyUnavailable" = "Ghostty 未回應自動化操作，請使用 Ghostty 1.3 以上版本、啟用 AppleScript 支援後重試";
+"error.ghosttyNotFound" = "找不到工作目錄與這個 session 相符的 Ghostty 終端，請手動選取分頁，並確認 Ghostty shell integration 已啟用";
+"error.ghosttyAmbiguous" = "有多個 Ghostty 終端使用相同工作目錄，請手動選取分頁；Ghostty 1.3 尚未提供用來區分它們的 process ID";

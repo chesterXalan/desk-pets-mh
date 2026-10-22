@@ -24,6 +24,14 @@ enum L {
     }
 
     static func error(_ error: Error) -> String {
+        if let error = error as? GhosttyFocusError {
+            switch error {
+            case .automationDenied: return t("error.ghosttyPermission")
+            case .unavailable: return t("error.ghosttyUnavailable")
+            case .notFound: return t("error.ghosttyNotFound")
+            case .ambiguous: return t("error.ghosttyAmbiguous")
+            }
+        }
         if let error = error as? CharacterError {
             switch error {
             case .invalidName: return t("error.characterName")

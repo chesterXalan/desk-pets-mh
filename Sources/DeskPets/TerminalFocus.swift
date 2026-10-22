@@ -2,6 +2,7 @@ import AppKit
 import DeskPetsCore
 
 /// 喚起 session 所在的終端，並定位 tmux pane 或 cmux 分頁。
+@MainActor
 enum TerminalFocus {
     static func focus(_ session: AgentSession, completion: (@Sendable (Bool) -> Void)? = nil) {
         if let location = session.tmux {
@@ -11,6 +12,23 @@ enum TerminalFocus {
         guard let app = hostApp(of: session.pid) else {
             NSSound.beep()
             completion?(false)
+            return
+        }
+        if app.bundleIdentifier == GhosttyControl.bundleIdentifier {
+            do {
+                try GhosttyAutomation.focus(directory: session.cwd)
+                bringToFront(app)
+                completion?(true)
+            } catch {
+                if completion == nil {
+                    let alert = NSAlert()
+                    alert.messageText = L.t("error.terminalFocus")
+                    alert.informativeText = L.error(error)
+                    NSApplication.shared.activate()
+                    alert.runModal()
+                }
+                completion?(false)
+            }
             return
         }
         guard let location = session.cmux, app.bundleIdentifier == CmuxControl.bundleIdentifier else {

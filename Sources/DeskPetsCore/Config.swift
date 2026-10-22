@@ -31,7 +31,7 @@ public struct PetBinding: Codable, Equatable, Identifiable, Sendable {
 }
 
 public struct AppConfig: Codable, Equatable, Sendable {
-    public static let sizes = [64, 96, 128]
+    public static let sizes = [64, 96, 128, 192, 256]
     public static let animationDurationRange = 0.4...6.0
 
     public var showPets = true

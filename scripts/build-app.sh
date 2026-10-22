@@ -28,7 +28,7 @@ sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$STAGE/Contents/Info.plis
 
 # Sign the helper first, then the bundle.
 codesign --force --sign - --options runtime "$STAGE/Contents/MacOS/deskpets-hook"
-codesign --force --sign - --options runtime "$STAGE"
+codesign --force --sign - --options runtime --entitlements Resources/DeskPets.entitlements "$STAGE"
 codesign --verify --strict "$STAGE"
 
 if [ -d "$APP" ]; then

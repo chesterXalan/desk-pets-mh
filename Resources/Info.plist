@@ -34,6 +34,8 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>DeskPets focuses the Ghostty tab for a pet's terminal session when you double-click the pet.</string>
     <key>NSHumanReadableCopyright</key>
     <string>© youngOman. MIT License.</string>
 </dict>
