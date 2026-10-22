@@ -34,7 +34,11 @@ Use a consistent position and scale across frames to avoid jitter.
 Add a folder with this layout and run `make app`. No character list is hard-coded.
 `make sprites` only generates `.build/Characters/`; `make app` also bundles the results.
 Generated GIFs use a 1.6-second loop, which the app can override without rebuilding images.
-Do not commit GIFs, app bundles, ZIPs, drafts, or local session data.
+Do not commit generated character GIFs, app bundles, ZIPs, drafts, or local session data.
+
+The README preview is a versioned exception: `make preview` rebuilds `docs/assets/preview.gif`
+from the PNG frames at 1.2 seconds per loop. Choose the featured characters and states in
+`tools/build-preview.swift`; intermediate frames stay in `.build/readme-preview/`.
 
 UI translations live in `Resources/{en,zh-Hant,ja}.lproj/Localizable.strings`.
 Keep keys and format placeholders consistent across languages; `make test` checks them.

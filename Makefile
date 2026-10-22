@@ -4,7 +4,7 @@ DEV_LIB := $(shell xcode-select -p)/Library/Developer/usr/lib
 TEST_FLAGS := --build-system native -Xswiftc -F -Xswiftc $(DEV_FRAMEWORKS) \
 	-Xlinker -F -Xlinker $(DEV_FRAMEWORKS) -Xlinker -rpath -Xlinker $(DEV_FRAMEWORKS) -Xlinker -rpath -Xlinker $(DEV_LIB)
 
-.PHONY: app test sprites run clean
+.PHONY: app test sprites preview run clean
 
 app:
 	./scripts/build-app.sh
@@ -14,6 +14,9 @@ test:
 
 sprites:
 	swift tools/build-monsters.swift .
+
+preview:
+	swift tools/build-preview.swift
 
 run: app
 	open build/DeskPets.app

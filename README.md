@@ -7,6 +7,10 @@
 Monster Hunter desktop companions for Claude Code and Codex on macOS, built with Swift and AppKit.
 Each pet follows a CLI session and animates when it is working, waiting for input, or idle.
 
+![Monster companions grouped by state: Zinogre, Mizutsune, Rathalos, and Valstrax working; Velkhana and Tigrex waiting for input; Nargacuga and Nergigante idle](docs/assets/preview.gif)
+
+Actual in-app frames, shown at a 1.2-second loop. Every monster has all three animations.
+
 - English, Traditional Chinese, and Japanese UI and monster names
 - Adjustable animation speed and size (64–256 px), saved automatically
 - Drag pets anywhere; double-click to focus their terminal, including tmux panes and cmux tabs
