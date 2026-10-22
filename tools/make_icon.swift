@@ -1,13 +1,13 @@
-// Generates Resources/AppIcon.icns from the first frame of the bundled ghost.
-// Run: swift tools/make_icon.swift
+// 從版控的圖示原稿產生 macOS 各尺寸圖示。
+// 執行方式：swift tools/make_icon.swift。
 import AppKit
 import ImageIO
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let gif = root.appendingPathComponent("Resources/Characters/ghost/idle.gif")
-guard let source = CGImageSourceCreateWithURL(gif as CFURL, nil),
-      let ghost = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-    fatalError("cannot read \(gif.path)")
+let artwork = root.appendingPathComponent("Resources/Branding/AppIcon.png")
+guard let source = CGImageSourceCreateWithURL(artwork as CFURL, nil),
+      let icon = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+    fatalError("cannot read \(artwork.path)")
 }
 
 func render(size: Int) -> Data {
@@ -15,27 +15,16 @@ func render(size: Int) -> Data {
     let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
                         space: CGColorSpace(name: CGColorSpace.sRGB)!,
                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-    // macOS icon grid: 824/1024 rounded square, centered.
-    let inset = s * 100 / 1024
-    let tile = CGRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
-    let radius = tile.width * 0.225
-    ctx.addPath(CGPath(roundedRect: tile, cornerWidth: radius, cornerHeight: radius, transform: nil))
-    ctx.clip()
-    let colors = [CGColor(srgbRed: 0.42, green: 0.36, blue: 0.78, alpha: 1),
-                  CGColor(srgbRed: 0.16, green: 0.13, blue: 0.34, alpha: 1)] as CFArray
-    let gradient = CGGradient(colorsSpace: nil, colors: colors, locations: [0, 1])!
-    ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: tile.maxY), end: CGPoint(x: 0, y: tile.minY), options: [])
-    // Keep the pixels crisp: integer scale, nearest-neighbour.
-    let scale = max(1, Int(tile.width * 0.72) / ghost.width)
-    let w = CGFloat(ghost.width * scale), h = CGFloat(ghost.height * scale)
-    ctx.interpolationQuality = .none
-    ctx.draw(ghost, in: CGRect(x: ((s - w) / 2).rounded(), y: ((s - h) / 2).rounded(), width: w, height: h))
+    // 保留原稿的透明邊緣，並為 macOS 圖示留出外圍空間。
+    let scale = s * 0.84 / CGFloat(max(icon.width, icon.height))
+    let width = CGFloat(icon.width) * scale, height = CGFloat(icon.height) * scale
+    ctx.interpolationQuality = .high
+    ctx.draw(icon, in: CGRect(x: (s - width) / 2, y: (s - height) / 2, width: width, height: height))
     let rep = NSBitmapImageRep(cgImage: ctx.makeImage()!)
     return rep.representation(using: .png, properties: [:])!
 }
 
-let iconset = FileManager.default.temporaryDirectory.appendingPathComponent("AppIcon.iconset")
-try? FileManager.default.removeItem(at: iconset)
+let iconset = root.appendingPathComponent(".build/AppIcon.iconset")
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 for base in [16, 32, 128, 256, 512] {
     try render(size: base).write(to: iconset.appendingPathComponent("icon_\(base)x\(base).png"))
@@ -47,4 +36,5 @@ iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
 iconutil.arguments = ["-c", "icns", iconset.path, "-o", out.path]
 try iconutil.run()
 iconutil.waitUntilExit()
+guard iconutil.terminationStatus == 0 else { fatalError("iconutil failed") }
 print("wrote \(out.path)")

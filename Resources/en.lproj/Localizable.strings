@@ -47,8 +47,8 @@
 "binding.hide" = "Hide for This Session";
 "menu.manage" = "Manage…";
 "menu.login" = "Launch at Login";
-"menu.quit" = "Quit Desk Pets";
-"app.title" = "Desk Pets MH";
+"menu.quit" = "Quit MH Desk Pets";
+"app.title" = "MH Desk Pets";
 "state.noHooks" = "Unknown (no hooks)";
 "language.label" = "Language";
 "language.system" = "System default";

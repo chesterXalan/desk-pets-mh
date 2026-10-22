@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "Desk Pets")
+        let image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "MH Desk Pets")
         image?.isTemplate = true
         statusItem.button?.image = image
 

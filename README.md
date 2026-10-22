@@ -1,4 +1,8 @@
-# Desk Pets MH
+<p align="center">
+  <img src="Resources/Branding/AppIcon.png" width="160" alt="MH Desk Pets — Mizutsune icon">
+</p>
+
+# MH Desk Pets
 
 Monster Hunter desktop companions for Claude Code and Codex on macOS, built with Swift and AppKit.
 Each pet follows a CLI session and animates when it is working, waiting for input, or idle.
@@ -13,8 +17,8 @@ Each pet follows a CLI session and animates when it is working, waiting for inpu
 Requires an Apple Silicon Mac, macOS 14+, Swift 6 (Command Line Tools), and FFmpeg.
 
 ```sh
-git clone https://github.com/chesterXalan/desk-pets-mh.git
-cd desk-pets-mh
+git clone https://github.com/chesterXalan/mh-desk-pet.git
+cd mh-desk-pet
 brew install ffmpeg
 make app
 ```
@@ -50,6 +54,7 @@ Use **Characters → Add Character…** to choose an idle GIF, with optional wor
 Source filenames are unrestricted; the app copies and names the files automatically in the character's folder.
 To add a built-in monster, see [Character assets](docs/characters.md).
 PNG frames and character metadata are versioned; GIFs are generated during the build.
+The app icon source and GitHub preview are versioned too; see [Branding](docs/branding.md).
 
 ## Local data
 

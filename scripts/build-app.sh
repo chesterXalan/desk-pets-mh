@@ -11,6 +11,7 @@ STAGE="build/.DeskPets.app.staging"
 
 command -v ffmpeg >/dev/null || { echo "FFmpeg is required: brew install ffmpeg" >&2; exit 1; }
 swift tools/build-monsters.swift .
+swift tools/make_icon.swift
 
 # The native build system works with only the Command Line Tools installed (no Xcode needed).
 swift build -c release --build-system native --arch arm64 2>&1 | grep -v "has been deprecated" || true

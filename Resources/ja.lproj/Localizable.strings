@@ -47,8 +47,8 @@
 "binding.hide" = "このセッションのペットを非表示";
 "menu.manage" = "管理…";
 "menu.login" = "ログイン時に起動";
-"menu.quit" = "Desk Pets を終了";
-"app.title" = "Desk Pets MH 管理";
+"menu.quit" = "MH Desk Pets を終了";
+"app.title" = "MH Desk Pets 管理";
 "state.noHooks" = "不明（フック未設定）";
 "language.label" = "言語";
 "language.system" = "システム設定";

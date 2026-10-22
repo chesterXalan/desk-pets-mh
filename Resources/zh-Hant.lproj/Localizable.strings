@@ -47,8 +47,8 @@
 "binding.hide" = "隱藏此工作階段的寵物";
 "menu.manage" = "管理…";
 "menu.login" = "登入時啟動";
-"menu.quit" = "結束 Desk Pets";
-"app.title" = "Desk Pets MH 管理";
+"menu.quit" = "結束 MH Desk Pets";
+"app.title" = "MH Desk Pets 管理";
 "state.noHooks" = "未知（沒有 hooks）";
 "language.label" = "語言";
 "language.system" = "跟隨系統";
