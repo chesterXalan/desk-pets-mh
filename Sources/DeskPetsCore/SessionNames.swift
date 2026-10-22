@@ -153,7 +153,7 @@ public final class SessionNamer: @unchecked Sendable {
         var names: [String: String] = [:]
         var used = Set<String>()
         for session in sessions {
-            let record = SessionMerger.matchingRecord(for: session, records: records)
+            let record = SessionMerger.matchingRecord(for: session, records: records, sessions: sessions)
             var titles = TranscriptTitles()
             if session.provider == .claude, let url = transcriptURL(for: session, record: record) {
                 used.insert(url.path)

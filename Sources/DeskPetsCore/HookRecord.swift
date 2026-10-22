@@ -110,25 +110,35 @@ public enum HookEvents {
 }
 
 public enum SessionMerger {
-    /// 優先對應程序；Codex 背景程序的事件可透過明確的 resume 對話 ID 對應。
-    static func matchingRecord(for session: AgentSession, records: [HookRecord]) -> HookRecord? {
+    /// 優先對應程序與明確的對話 ID；沒有 ID 時，只接受目錄內唯一的 Codex 與新紀錄。
+    static func matchingRecord(for session: AgentSession, records: [HookRecord], sessions: [AgentSession]) -> HookRecord? {
         let candidates = records.filter { $0.provider == session.provider }
         if let direct = candidates
             .filter({ $0.pid == session.pid && abs($0.pidStart - session.startTime) < 2 })
             .max(by: { $0.updatedAt < $1.updatedAt }) {
             return direct
         }
-        guard session.provider == .codex, let id = session.launchSessionId, !id.isEmpty else { return nil }
-        return candidates
-            .filter { $0.sessionId.lowercased() == id.lowercased() && $0.updatedAt >= session.startTime }
-            .max { $0.updatedAt < $1.updatedAt }
+        guard session.provider == .codex else { return nil }
+        if let id = session.launchSessionId, !id.isEmpty {
+            return candidates
+                .filter { $0.sessionId.lowercased() == id.lowercased() && $0.updatedAt >= session.startTime }
+                .max { $0.updatedAt < $1.updatedAt }
+        }
+        guard sessions.filter({ $0.provider == .codex && $0.cwd == session.cwd }).count == 1 else { return nil }
+        let recent = candidates.filter {
+            !$0.sessionId.isEmpty && $0.cwd == session.cwd && $0.updatedAt >= session.startTime
+        }
+        let latest = Dictionary(grouping: recent, by: { $0.sessionId.lowercased() }).values
+            .compactMap { $0.max { $0.updatedAt < $1.updatedAt } }
+            .filter { $0.state != .exited }
+        return latest.count == 1 ? latest.first : nil
     }
 
     /// 將最新的對應事件套用至前景 CLI，保留供終端切換使用的原始 PID。
     public static func merge(_ sessions: [AgentSession], records: [HookRecord]) -> [AgentSession] {
         sessions.map { session in
             var session = session
-            if let match = matchingRecord(for: session, records: records) {
+            if let match = matchingRecord(for: session, records: records, sessions: sessions) {
                 session.state = match.state == .exited ? .unknown : match.state
                 session.sessionId = match.sessionId.isEmpty ? nil : match.sessionId
                 session.title = match.title

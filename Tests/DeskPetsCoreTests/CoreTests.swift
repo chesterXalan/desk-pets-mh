@@ -74,20 +74,74 @@ private func temporaryDirectory() throws -> URL {
         #expect(names[session.id] == "Resumed session")
     }
 
-    @Test func resumedCodexRejectsStaleAndUnidentifiedBackendRecords() {
+    @Test func resumedCodexRejectsStaleAndOtherProviderRecords() {
         let id = "ba41fa31-c0a7-42d7-b5d1-59516579b291"
         let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a", launchSessionId: id)
         var record = HookRecord(provider: .codex, sessionId: id, state: .working, event: "PreToolUse",
                                 cwd: "/a", pid: 10, pidStart: 50, updatedAt: 99)
         #expect(SessionMerger.merge([session], records: [record])[0].state == .unknown)
         record.updatedAt = 101
-        var unidentified = session
-        unidentified.launchSessionId = nil
-        #expect(SessionMerger.merge([unidentified], records: [record])[0].state == .unknown)
         var claude = session
         claude.provider = .claude
         record.provider = .claude
         #expect(SessionMerger.merge([claude], records: [record])[0].state == .unknown)
+    }
+
+    @Test func plainCodexMatchesUniqueRecentBackendRecordAndTitle() throws {
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a")
+        let claude = AgentSession(provider: .claude, pid: 30, startTime: 100, cwd: "/a")
+        var record = HookRecord(provider: .codex, sessionId: "current", state: .working, event: "PreToolUse",
+                                cwd: "/a", pid: 10, pidStart: 50, title: "Current conversation", updatedAt: 101)
+        let old = HookRecord(provider: .codex, sessionId: "old", state: .idle, event: "Stop", cwd: "/a",
+                             pid: 10, pidStart: 50, updatedAt: 99)
+        let elsewhere = HookRecord(provider: .codex, sessionId: "elsewhere", state: .working, event: "PreToolUse",
+                                   cwd: "/b", pid: 10, pidStart: 50, updatedAt: 102)
+        let sessions = [session, claude]
+        for state in [PetState.working, .waiting, .idle] {
+            record.state = state
+            let records = [old, elsewhere, record]
+            let merged = SessionMerger.merge(sessions, records: records)
+            #expect(merged[0].state == state)
+            #expect(merged[0].sessionId == "current")
+            #expect(merged[0].pid == session.pid)
+            #expect(merged[1].state == .unknown)
+            let names = SessionNamer(home: try temporaryDirectory()).names(for: sessions, records: records)
+            #expect(names[session.id] == "Current conversation")
+        }
+    }
+
+    @Test func plainCodexRejectsAmbiguousProcessesOrConversations() {
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a")
+        let second = AgentSession(provider: .codex, pid: 30, startTime: 100, cwd: "/a")
+        let record = HookRecord(provider: .codex, sessionId: "current", state: .working, event: "PreToolUse",
+                                cwd: "/a", pid: 10, pidStart: 50, updatedAt: 101)
+        #expect(SessionMerger.merge([session, second], records: [record]).allSatisfy { $0.state == .unknown })
+        var other = record
+        other.sessionId = "another-conversation"
+        other.updatedAt = 102
+        #expect(SessionMerger.merge([session], records: [record, other])[0].state == .unknown)
+        var resumed = session
+        resumed.launchSessionId = "missing-conversation"
+        #expect(SessionMerger.merge([resumed], records: [record])[0].state == .unknown)
+    }
+
+    @Test func plainCodexRejectsStaleEndedOrUnidentifiedRecords() {
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a")
+        let record = HookRecord(provider: .codex, sessionId: "current", state: .working, event: "PreToolUse",
+                                cwd: "/a", pid: 10, pidStart: 50, updatedAt: 101)
+        var stale = record
+        stale.updatedAt = 99
+        var ended = record
+        ended.state = .exited
+        ended.updatedAt = 102
+        var unidentified = record
+        unidentified.sessionId = ""
+        var otherDirectory = record
+        otherDirectory.cwd = "/b"
+        for records in [[stale], [record, ended], [unidentified], [otherDirectory]] {
+            #expect(SessionMerger.merge([session], records: records)[0].state == .unknown)
+        }
+        #expect(SessionMerger.merge([session], records: [stale, record])[0].state == .working)
     }
 
     @Test func directProcessMatchTakesPrecedenceOverResumedSession() {
