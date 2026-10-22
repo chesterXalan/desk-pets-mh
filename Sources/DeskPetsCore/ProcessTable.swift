@@ -160,6 +160,7 @@ public final class ClassificationCache: @unchecked Sendable {
         var start: Double
         var provider: Provider?
         var cmux: CmuxLocation?
+        var tmux: TmuxLocation?
         var launchSessionId: String?
     }
 
@@ -187,6 +188,7 @@ public enum SessionScanner {
                AgentClassifier.isInteractive(arguments: arguments) {
                 entry.provider = provider
                 entry.cmux = CmuxLocation.from(environment: environment)
+                entry.tmux = TmuxLocation.from(environment: environment)
                 entry.launchSessionId = AgentClassifier.sessionId(arguments: arguments)
                 found[process] = entry
             }
@@ -198,7 +200,7 @@ public enum SessionScanner {
         return found.filter { !parents.contains($0.key.pid) }.compactMap { process, entry in
             guard let provider = entry.provider, let cwd = ProcessTable.cwd(process.pid) else { return nil }
             return AgentSession(provider: provider, pid: process.pid, startTime: process.startTime, cwd: cwd,
-                                cmux: entry.cmux, launchSessionId: entry.launchSessionId)
+                                cmux: entry.cmux, launchSessionId: entry.launchSessionId, tmux: entry.tmux)
         }.sorted { $0.startTime < $1.startTime }
     }
 

@@ -13,7 +13,7 @@ test:
 	swift test $(TEST_FLAGS)
 
 sprites:
-	swift tools/make_sprites.swift Resources/Characters
+	swift tools/build-monsters.swift .
 
 run: app
 	open build/DeskPets.app

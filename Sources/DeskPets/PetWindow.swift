@@ -44,14 +44,14 @@ final class GIFAnimation {
         return animation
     }
 
-    func play(on layer: CALayer) {
+    func play(on layer: CALayer, duration overrideDuration: Double? = nil) {
         layer.removeAnimation(forKey: "gif")
         layer.contents = frames[0]
         guard frames.count > 1 else { return }
         let animation = CAKeyframeAnimation(keyPath: "contents")
         animation.values = frames
         animation.keyTimes = keyTimes
-        animation.duration = duration
+        animation.duration = overrideDuration ?? duration
         animation.calculationMode = .discrete
         animation.repeatCount = .infinity
         animation.isRemovedOnCompletion = false
@@ -75,6 +75,7 @@ final class PetWindowController: NSObject, NSWindowDelegate {
     private let bubble = HoverBubble()
     private var session: AgentSession?
     private var animation: GIFAnimation?
+    private var animationDuration: Double?
     private var wantsVisible = false
 
     init(bindingId: UUID, origin: CGPoint, size: CGFloat) {
@@ -102,15 +103,16 @@ final class PetWindowController: NSObject, NSWindowDelegate {
 
     var frame: NSRect { panel.frame }
 
-    func update(session: AgentSession, character: CharacterInfo, size: CGFloat) {
+    func update(session: AgentSession, character: CharacterInfo, size: CGFloat, animationDuration: Double?) {
         self.session = session
         if panel.frame.width != size {
             panel.setFrame(NSRect(origin: panel.frame.origin, size: NSSize(width: size, height: size)), display: true)
         }
         petView.setState(session.state)
         let next = GIFAnimation.load(character.gif(for: session.state))
-        if next !== animation {
+        if next !== animation || self.animationDuration != animationDuration {
             animation = next
+            self.animationDuration = animationDuration
             restartAnimation()
         }
         bubble.text = session.title == nil
@@ -148,7 +150,7 @@ final class PetWindowController: NSObject, NSWindowDelegate {
             petView.sprite.removeAllAnimations()
             return
         }
-        animation?.play(on: petView.sprite)
+        animation?.play(on: petView.sprite, duration: animationDuration)
     }
 
     private func hover(_ inside: Bool) {
@@ -173,7 +175,7 @@ final class PetWindowController: NSObject, NSWindowDelegate {
 
     func windowDidChangeOcclusionState(_ notification: Notification) {
         if panel.occlusionState.contains(.visible) {
-            if wantsVisible { animation?.play(on: petView.sprite) }
+            if wantsVisible { animation?.play(on: petView.sprite, duration: animationDuration) }
         } else {
             petView.sprite.removeAllAnimations()
         }

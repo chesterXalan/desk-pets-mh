@@ -234,6 +234,7 @@ private func temporaryDirectory() throws -> URL {
         let idle = try gif(in: root, name: "a.gif")
         let character = try library.importCharacter(name: "  Mochi ", idle: idle)
         #expect(character.name == "Mochi")
+        #expect(character.displayScale == 1)
         #expect(library.list().map(\.name) == ["cat", "Mochi"])
         // Missing optional animations fall back to idle.
         #expect(character.gif(for: .working).lastPathComponent == "idle.gif")
@@ -247,6 +248,23 @@ private func temporaryDirectory() throws -> URL {
         #expect(throws: CharacterError.builtIn) { try library.delete(library.character(named: "cat")!) }
         try library.delete(character)
         #expect(library.list().map(\.name) == ["cat"])
+    }
+
+    @Test(arguments: [
+        (#"{"displayScale":1.2}"#, 1.2),
+        (#"{"displayScale":0}"#, 1.0),
+        (#"{"displayScale":3}"#, 1.0),
+        ("{}", 1.0),
+        ("broken", 1.0),
+    ])
+    func readsCharacterScale(options: String, expected: Double) throws {
+        let root = try temporaryDirectory()
+        let directory = root.appendingPathComponent("custom/Ice")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        _ = try gif(in: directory, name: "idle.gif")
+        try Data(options.utf8).write(to: directory.appendingPathComponent("character.json"))
+        let library = CharacterLibrary(builtInRoot: nil, customRoot: root.appendingPathComponent("custom"))
+        #expect(library.character(named: "Ice")?.displayScale == expected)
     }
 }
 

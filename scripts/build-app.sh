@@ -9,6 +9,9 @@ APP="build/DeskPets.app"
 # deskpets-hook, and running sessions should never see it missing mid-build.
 STAGE="build/.DeskPets.app.staging"
 
+command -v ffmpeg >/dev/null || { echo "FFmpeg is required: brew install ffmpeg" >&2; exit 1; }
+swift tools/build-monsters.swift .
+
 # The native build system works with only the Command Line Tools installed (no Xcode needed).
 swift build -c release --build-system native --arch arm64 2>&1 | grep -v "has been deprecated" || true
 BIN="$(swift build -c release --build-system native --arch arm64 --show-bin-path 2>/dev/null | tail -n 1)"
@@ -18,7 +21,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources"
 cp "$BIN/DeskPets" "$BIN/deskpets-hook" "$STAGE/Contents/MacOS/"
 strip -x "$STAGE/Contents/MacOS/DeskPets" "$STAGE/Contents/MacOS/deskpets-hook"
-cp -R Resources/Characters "$STAGE/Contents/Resources/Characters"
+cp -R .build/Characters "$STAGE/Contents/Resources/Characters"
 cp Resources/AppIcon.icns "$STAGE/Contents/Resources/AppIcon.icns"
 sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$STAGE/Contents/Info.plist"
 

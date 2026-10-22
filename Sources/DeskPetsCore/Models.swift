@@ -52,12 +52,13 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
     public var title: String?
     /// The cmux tab hosting the session, read from the process environment.
     public var cmux: CmuxLocation?
+    public var tmux: TmuxLocation?
     /// Session id from `--session-id` / `--resume`, used before any hook has fired.
     public var launchSessionId: String?
 
     public init(provider: Provider, pid: Int32, startTime: Double, cwd: String,
                 state: PetState = .unknown, sessionId: String? = nil, title: String? = nil,
-                cmux: CmuxLocation? = nil, launchSessionId: String? = nil) {
+                cmux: CmuxLocation? = nil, launchSessionId: String? = nil, tmux: TmuxLocation? = nil) {
         self.provider = provider
         self.pid = pid
         self.startTime = startTime
@@ -66,6 +67,7 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
         self.sessionId = sessionId
         self.title = title
         self.cmux = cmux
+        self.tmux = tmux
         self.launchSessionId = launchSessionId
     }
 

@@ -6,12 +6,57 @@ import UniformTypeIdentifiers
 struct ManageView: View {
     var body: some View {
         TabView {
+            SettingsTab().tabItem { Text(L.t("Settings", "設定")) }
             SessionsTab().tabItem { Text(L.t("Sessions", "Sessions")) }
             CharactersTab().tabItem { Text(L.t("Characters", "角色")) }
             HooksTab().tabItem { Text("Hooks") }
         }
         .padding()
         .frame(minWidth: 640, minHeight: 400)
+    }
+}
+
+private struct SettingsTab: View {
+    @EnvironmentObject private var app: AppController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Toggle(L.t("Show pets", "顯示寵物"), isOn: Binding(
+                get: { app.config.showPets }, set: { app.setShowPets($0) }))
+            HStack {
+                Text(L.t("Pet size", "寵物大小"))
+                Spacer()
+                SizePicker()
+            }
+            Divider()
+            Toggle(L.t("Set animation loop duration", "自訂動畫一輪時間"), isOn: Binding(
+                get: { app.config.animationDuration != nil },
+                set: { app.setAnimationDuration($0 ? 1.2 : nil) }))
+            if let duration = app.config.animationDuration {
+                HStack(spacing: 12) {
+                    Text(L.t("Faster", "快"))
+                    Slider(value: Binding(get: { app.config.animationDuration ?? 1.2 },
+                                          set: { app.setAnimationDuration($0) }),
+                           in: AppConfig.animationDurationRange, step: 0.1)
+                        .accessibilityLabel(L.t("Animation loop duration", "動畫一輪秒數"))
+                    Text(L.t("Slower", "慢"))
+                    Text(String(format: L.t("%.1f s / loop", "%.1f 秒／輪"), duration))
+                        .monospacedDigit().frame(width: 105, alignment: .trailing)
+                }
+                HStack {
+                    ForEach([1.2, 1.6, 2.0, 2.4], id: \.self) { value in
+                        Button(String(format: L.t("%.1f s", "%.1f 秒"), value)) {
+                            app.setAnimationDuration(value)
+                        }
+                    }
+                }
+            }
+            Text(L.t("Applies immediately to every pet and state, and is saved automatically. Turn off to use the GIF's own timing.",
+                     "立即套用所有寵物與狀態，並自動儲存；關閉後使用 GIF 原本的速度。"))
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(12)
     }
 }
 

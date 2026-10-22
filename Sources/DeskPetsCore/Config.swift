@@ -32,15 +32,19 @@ public struct PetBinding: Codable, Equatable, Identifiable, Sendable {
 
 public struct AppConfig: Codable, Equatable, Sendable {
     public static let sizes = [64, 96, 128]
+    public static let animationDurationRange = 0.4...6.0
 
     public var showPets = true
     public var petSize = 96
+    public var animationDuration: Double?
     public var bindings: [PetBinding] = []
 
-    public init(showPets: Bool = true, petSize: Int = 96, bindings: [PetBinding] = []) {
+    public init(showPets: Bool = true, petSize: Int = 96, bindings: [PetBinding] = [],
+                animationDuration: Double? = nil) {
         self.showPets = showPets
         self.petSize = petSize
         self.bindings = bindings
+        self.animationDuration = animationDuration.flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +52,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
         showPets = try container.decodeIfPresent(Bool.self, forKey: .showPets) ?? true
         petSize = try container.decodeIfPresent(Int.self, forKey: .petSize) ?? 96
         bindings = try container.decodeIfPresent([PetBinding].self, forKey: .bindings) ?? []
+        animationDuration = (try? container.decodeIfPresent(Double.self, forKey: .animationDuration))
+            .flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
     }
 
     /// Missing or unreadable config yields defaults; a broken file is never fatal.

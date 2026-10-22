@@ -5,6 +5,7 @@ public struct CharacterInfo: Identifiable, Hashable, Sendable {
     public var name: String
     public var directory: URL
     public var builtIn: Bool
+    public var displayScale: Double = 1
 
     public var id: String { name }
 
@@ -96,7 +97,16 @@ public struct CharacterLibrary: Sendable {
             at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return [] }
         return entries
             .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("idle.gif").path) }
-            .map { CharacterInfo(name: $0.lastPathComponent, directory: $0, builtIn: builtIn) }
+            .map { CharacterInfo(name: $0.lastPathComponent, directory: $0, builtIn: builtIn,
+                                 displayScale: displayScale(in: $0)) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private static func displayScale(in directory: URL) -> Double {
+        struct Options: Decodable { var displayScale: Double }
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("character.json")),
+              let options = try? JSONDecoder().decode(Options.self, from: data),
+              (0.5...2).contains(options.displayScale) else { return 1 }
+        return options.displayScale
     }
 }

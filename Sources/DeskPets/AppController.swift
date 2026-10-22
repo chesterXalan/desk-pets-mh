@@ -124,8 +124,9 @@ final class AppController: ObservableObject {
             guard let sessionId = resolved[binding.id], let session = byId[sessionId],
                   let character = characters.first(where: { $0.name == binding.character }) ?? characters.first else { continue }
             alive.insert(binding.id)
-            let pet = pets[binding.id] ?? makePet(for: binding)
-            pet.update(session: session, character: character, size: CGFloat(config.petSize))
+            let size = CGFloat(config.petSize) * character.displayScale
+            let pet = pets[binding.id] ?? makePet(for: binding, size: size)
+            pet.update(session: session, character: character, size: size, animationDuration: config.animationDuration)
             if config.showPets { pet.show() } else { pet.hide() }
         }
         for (id, pet) in pets where !alive.contains(id) {
@@ -134,15 +135,14 @@ final class AppController: ObservableObject {
         }
     }
 
-    private func makePet(for binding: PetBinding) -> PetWindowController {
-        let size = CGFloat(config.petSize)
+    private func makePet(for binding: PetBinding, size: CGFloat) -> PetWindowController {
         let origin: CGPoint
         if let x = binding.x, let y = binding.y {
             origin = CGPoint(x: x, y: y)
         } else {
             let frame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-            let slot = CGFloat(pets.count)
-            origin = CGPoint(x: frame.maxX - 40 - size - slot * (size + 16), y: frame.minY + 24)
+            let occupiedWidth = pets.values.reduce(CGFloat.zero) { $0 + $1.frame.width + 16 }
+            origin = CGPoint(x: frame.maxX - 40 - size - occupiedWidth, y: frame.minY + 24)
         }
         let pet = PetWindowController(bindingId: binding.id, origin: origin, size: size)
         pet.onMoved = { [weak self] id, point in self?.petMoved(id, to: point) }
@@ -165,6 +165,9 @@ final class AppController: ObservableObject {
         characterItem.submenu = characterMenu
         menu.addItem(characterItem)
         menu.addItem(ClosureMenuItem(title: L.t("Show Terminal", "切到終端機")) { [weak self] in self?.pets[id]?.activateTerminal() })
+        menu.addItem(ClosureMenuItem(title: L.t("Settings…", "設定…")) {
+            (NSApp.delegate as? AppDelegate)?.openManager()
+        })
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(title: L.t("Unbind", "解除綁定")) { [weak self] in self?.unbind(id) })
         return menu
@@ -224,6 +227,13 @@ final class AppController: ObservableObject {
         config.petSize = size
         save()
         refresh()
+    }
+
+    func setAnimationDuration(_ duration: Double?) {
+        if let duration, !AppConfig.animationDurationRange.contains(duration) { return }
+        config.animationDuration = duration
+        save()
+        updatePets()
     }
 
     // MARK: - Characters

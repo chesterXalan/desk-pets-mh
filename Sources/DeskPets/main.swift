@@ -9,7 +9,11 @@ if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "focus-session"
     }
     MainActor.assumeIsolated {
         TerminalFocus.focus(session) { switched in
-            print(session.cmux == nil ? "activated host app" : (switched ? "switched cmux tab and activated cmux" : "cmux refused; activated app only"))
+            if session.tmux != nil {
+                print(switched ? "switched tmux pane and activated host app" : "could not focus tmux pane")
+            } else {
+                print(switched ? "focused terminal" : "could not focus terminal")
+            }
             exit(switched ? 0 : 1)
         }
     }

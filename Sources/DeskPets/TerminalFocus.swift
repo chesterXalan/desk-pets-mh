@@ -1,10 +1,13 @@
 import AppKit
 import DeskPetsCore
 
-/// Brings the terminal that hosts a session to the front. For cmux it also selects the
-/// session's workspace and tab; other terminals only get their app activated.
+/// 喚起 session 所在的終端，並定位 tmux pane 或 cmux 分頁。
 enum TerminalFocus {
     static func focus(_ session: AgentSession, completion: (@Sendable (Bool) -> Void)? = nil) {
+        if let location = session.tmux {
+            focusTmux(location, completion: completion)
+            return
+        }
         guard let app = hostApp(of: session.pid) else {
             NSSound.beep()
             completion?(false)
@@ -20,6 +23,28 @@ enum TerminalFocus {
             DispatchQueue.main.async {
                 bringToFront(app)
                 completion?(switched)
+            }
+        }
+    }
+
+    private static func focusTmux(_ location: TmuxLocation, completion: (@Sendable (Bool) -> Void)?) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let clients = TmuxControl.clients(for: location)
+            DispatchQueue.main.async {
+                guard let (client, app) = clients.lazy.compactMap({ client in
+                    hostApp(of: client.pid).map { (client, $0) }
+                }).first else {
+                    NSSound.beep()
+                    completion?(false)
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let switched = TmuxControl.focus(location, client: client)
+                    DispatchQueue.main.async {
+                        if switched { bringToFront(app) } else { NSSound.beep() }
+                        completion?(switched)
+                    }
+                }
             }
         }
     }
