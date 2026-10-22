@@ -4,13 +4,17 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ManageView: View {
+    @EnvironmentObject private var app: AppController
+
     var body: some View {
         TabView {
-            SettingsTab().tabItem { Text(L.t("Settings", "設定")) }
-            SessionsTab().tabItem { Text(L.t("Sessions", "Sessions")) }
-            CharactersTab().tabItem { Text(L.t("Characters", "角色")) }
-            HooksTab().tabItem { Text("Hooks") }
+            SettingsTab().tabItem { Text(L.t("settings.title")) }
+            SessionsTab().tabItem { Text(L.t("sessions.title")) }
+            CharactersTab().tabItem { Text(L.t("characters.title")) }
+            HooksTab().tabItem { Text(L.t("hooks.title")) }
         }
+        .id(app.config.language)
+        .environment(\.locale, Locale(identifier: app.config.language.resolved().rawValue))
         .padding()
         .frame(minWidth: 640, minHeight: 400)
     }
@@ -21,38 +25,43 @@ private struct SettingsTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Toggle(L.t("Show pets", "顯示寵物"), isOn: Binding(
+            Picker(L.t("language.label"), selection: Binding(
+                get: { app.config.language }, set: { app.setLanguage($0) })) {
+                ForEach(AppLanguage.allCases, id: \.self) { language in
+                    Text(L.languageName(language)).tag(language)
+                }
+            }
+            Toggle(L.t("pets.show"), isOn: Binding(
                 get: { app.config.showPets }, set: { app.setShowPets($0) }))
             HStack {
-                Text(L.t("Pet size", "寵物大小"))
+                Text(L.t("pets.size"))
                 Spacer()
                 SizePicker()
             }
             Divider()
-            Toggle(L.t("Set animation loop duration", "自訂動畫一輪時間"), isOn: Binding(
+            Toggle(L.t("animation.custom"), isOn: Binding(
                 get: { app.config.animationDuration != nil },
                 set: { app.setAnimationDuration($0 ? 1.2 : nil) }))
             if let duration = app.config.animationDuration {
                 HStack(spacing: 12) {
-                    Text(L.t("Faster", "快"))
+                    Text(L.t("animation.faster"))
                     Slider(value: Binding(get: { app.config.animationDuration ?? 1.2 },
                                           set: { app.setAnimationDuration($0) }),
                            in: AppConfig.animationDurationRange, step: 0.1)
-                        .accessibilityLabel(L.t("Animation loop duration", "動畫一輪秒數"))
-                    Text(L.t("Slower", "慢"))
-                    Text(String(format: L.t("%.1f s / loop", "%.1f 秒／輪"), duration))
+                        .accessibilityLabel(L.t("animation.duration"))
+                    Text(L.t("animation.slower"))
+                    Text(String(format: L.t("animation.loop"), duration))
                         .monospacedDigit().frame(width: 105, alignment: .trailing)
                 }
                 HStack {
                     ForEach([1.2, 1.6, 2.0, 2.4], id: \.self) { value in
-                        Button(String(format: L.t("%.1f s", "%.1f 秒"), value)) {
+                        Button(String(format: L.t("animation.seconds"), value)) {
                             app.setAnimationDuration(value)
                         }
                     }
                 }
             }
-            Text(L.t("Applies immediately to every pet and state, and is saved automatically. Turn off to use the GIF's own timing.",
-                     "立即套用所有寵物與狀態，並自動儲存；關閉後使用 GIF 原本的速度。"))
+            Text(L.t("animation.help"))
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
         }
@@ -68,7 +77,7 @@ private struct SessionsTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Table(app.sessions) {
-                TableColumn(L.t("Session", "Session")) { session in
+                TableColumn(L.t("session.label")) { session in
                     VStack(alignment: .leading, spacing: 1) {
                         Text(verbatim: session.displayName)
                         if session.title != nil {
@@ -79,33 +88,33 @@ private struct SessionsTab: View {
                 }
                 TableColumn("CLI") { session in Text(session.provider.rawValue) }
                     .width(60)
-                TableColumn(L.t("State", "狀態")) { session in StateLabel(state: session.state) }
+                TableColumn(L.t("state.label")) { session in StateLabel(state: session.state) }
                     .width(110)
-                TableColumn(L.t("Pet", "寵物")) { session in
+                TableColumn(L.t("pet.label")) { session in
                     Picker("", selection: Binding(
                         get: { app.binding(for: session)?.character ?? "" },
                         set: { app.setPet($0.isEmpty ? nil : $0, for: session) })) {
-                        Text(L.t("None", "不綁定")).tag("")
-                        ForEach(app.characters) { Text($0.name).tag($0.name) }
+                        Text(L.t("binding.none")).tag("")
+                        ForEach(app.characters) { Text($0.displayName(in: L.language)).tag($0.name) }
                     }
                     .labelsHidden()
                 }
                 .width(150)
             }
             if !app.offlineBindings.isEmpty {
-                Text(L.t("Waiting for their session to start again:", "等待 session 重新開啟的寵物："))
+                Text(L.t("binding.offline"))
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(app.offlineBindings) { binding in
                     HStack {
-                        Text(verbatim: "\(binding.character) · \(binding.provider.rawValue) · \(binding.cwd)")
+                        Text(verbatim: "\(app.characterName(binding.character)) · \(binding.provider.rawValue) · \(binding.cwd)")
                             .font(.caption).lineLimit(1).truncationMode(.middle)
                         Spacer()
-                        Button(L.t("Remove", "移除")) { app.unbind(binding.id) }.controlSize(.small)
+                        Button(L.t("action.remove")) { app.unbind(binding.id) }.controlSize(.small)
                     }
                 }
             }
             HStack {
-                Toggle(L.t("Show pets", "顯示寵物"), isOn: Binding(get: { app.config.showPets }, set: { app.setShowPets($0) }))
+                Toggle(L.t("pets.show"), isOn: Binding(get: { app.config.showPets }, set: { app.setShowPets($0) }))
                 Spacer()
                 SizePicker()
             }
@@ -134,10 +143,10 @@ private struct StateLabel: View {
 
     private var name: String {
         switch state {
-        case .working: return L.t("Working", "工作中")
-        case .waiting: return L.t("Waiting", "等你回覆")
-        case .idle: return L.t("Idle", "閒置")
-        case .unknown, .exited: return L.t("Unknown", "未知")
+        case .working: return L.t("state.working")
+        case .waiting: return L.t("state.waiting")
+        case .idle: return L.t("state.idle")
+        case .unknown, .exited: return L.t("state.unknown")
         }
     }
 }
@@ -146,7 +155,7 @@ private struct SizePicker: View {
     @EnvironmentObject private var app: AppController
 
     var body: some View {
-        Picker(L.t("Size", "大小"), selection: Binding(get: { app.config.petSize }, set: { app.setPetSize($0) })) {
+        Picker(L.t("size.label"), selection: Binding(get: { app.config.petSize }, set: { app.setPetSize($0) })) {
             ForEach(AppConfig.sizes, id: \.self) { Text("\($0) px").tag($0) }
         }
         .pickerStyle(.segmented)
@@ -166,31 +175,30 @@ private struct CharactersTab: View {
                 HStack(spacing: 12) {
                     GIFThumbnail(url: character.gif(for: .idle))
                     VStack(alignment: .leading) {
-                        Text(character.name)
-                        Text(character.builtIn ? L.t("Built-in", "內建") : character.directory.path)
+                        Text(character.displayName(in: L.language))
+                        Text(character.builtIn ? L.t("character.builtIn") : character.directory.path)
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     }
                     Spacer()
                     if !character.builtIn {
-                        Button(L.t("Delete…", "刪除…")) { ui.pendingDelete = character }
+                        Button(L.t("action.delete")) { ui.pendingDelete = character }
                     }
                 }
                 .padding(.vertical, 2)
             }
             HStack {
-                Button(L.t("Add Character…", "新增角色…")) { ui.adding = true }
-                Text(L.t("A character is idle.gif, plus optional working.gif and waiting.gif.",
-                         "一個角色＝idle.gif（必填）＋ working.gif、waiting.gif（選填）。"))
+                Button(L.t("character.add")) { ui.adding = true }
+                Text(L.t("character.files"))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 SizePicker()
             }
         }
         .sheet(isPresented: $ui.adding) { AddCharacterSheet() }
-        .confirmationDialog(L.t("Delete this character?", "刪除這個角色？"), isPresented: Binding(
+        .confirmationDialog(L.t("character.deleteQuestion"), isPresented: Binding(
             get: { ui.pendingDelete != nil }, set: { if !$0 { ui.pendingDelete = nil } }), presenting: ui.pendingDelete) { character in
-            Button(L.t("Delete “\(character.name)”", "刪除「\(character.name)」"), role: .destructive) {
-                do { try app.deleteCharacter(character) } catch { ui.error = error.localizedDescription }
+            Button(L.format("character.deleteNamed", character.displayName(in: L.language)), role: .destructive) {
+                do { try app.deleteCharacter(character) } catch { ui.error = L.error(error) }
             }
         }
         .alert(ui.error ?? "", isPresented: Binding(get: { ui.error != nil }, set: { if !$0 { ui.error = nil } })) {}
@@ -217,14 +225,16 @@ private struct AddCharacterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var form = CharacterForm()
 
-    private static let slots = [("idle", L.t("Idle (required)", "閒置（必填）")),
-                                ("working", L.t("Working (optional)", "工作中（選填）")),
-                                ("waiting", L.t("Waiting (optional)", "等你回覆（選填）"))]
+    private static var slots: [(String, String)] {
+        [("idle", L.t("character.idle")),
+         ("working", L.t("character.working")),
+         ("waiting", L.t("character.waiting"))]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(L.t("New Character", "新增角色")).font(.headline)
-            TextField(L.t("Name", "名字"), text: $form.name)
+            Text(L.t("character.new")).font(.headline)
+            TextField(L.t("character.name"), text: $form.name)
             ForEach(Self.slots, id: \.0) { key, title in
                 HStack {
                     Text(title).frame(width: 140, alignment: .leading)
@@ -233,17 +243,16 @@ private struct AddCharacterSheet: View {
                         .lineLimit(1).truncationMode(.middle)
                     Spacer()
                     if form.files[key] != nil {
-                        Button(L.t("Clear", "清除")) { form.files[key] = nil }
+                        Button(L.t("action.clear")) { form.files[key] = nil }
                     }
-                    Button(L.t("Choose…", "選擇…")) { choose(key) }
+                    Button(L.t("action.choose")) { choose(key) }
                 }
             }
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4]))
                 .foregroundStyle(.secondary)
                 .frame(height: 60)
-                .overlay(Text(L.t("Or drop 1–3 GIFs here (named idle / working / waiting)",
-                                  "或把 1～3 張 GIF 拖進來（檔名 idle／working／waiting）"))
+                .overlay(Text(L.t("character.drop"))
                     .font(.caption).foregroundStyle(.secondary))
                 .dropDestination(for: URL.self) { urls, _ in
                     assign(urls)
@@ -254,8 +263,8 @@ private struct AddCharacterSheet: View {
             }
             HStack {
                 Spacer()
-                Button(L.t("Cancel", "取消")) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(L.t("Add", "新增")) { add() }
+                Button(L.t("action.cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(L.t("action.add")) { add() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(form.name.trimmingCharacters(in: .whitespaces).isEmpty || form.files["idle"] == nil)
             }
@@ -292,7 +301,7 @@ private struct AddCharacterSheet: View {
             try app.importCharacter(name: form.name, idle: idle, working: form.files["working"], waiting: form.files["waiting"])
             dismiss()
         } catch {
-            form.error = error.localizedDescription
+            form.error = L.error(error)
         }
     }
 }
@@ -305,8 +314,7 @@ private struct HooksTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(L.t("Hooks tell Desk Pets whether a session is working, waiting for you, or idle. Without them every pet shows “unknown”.",
-                     "Hooks 讓寵物知道 session 是工作中、等你回覆還是閒置；沒有 hooks 時狀態一律顯示「未知」。"))
+            Text(L.t("hooks.help"))
                 .fixedSize(horizontal: false, vertical: true)
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                 GridRow {
@@ -320,13 +328,12 @@ private struct HooksTab: View {
                     Text(status(.codex))
                 }
             }
-            Text(L.t("Your existing hooks are kept. The file is backed up as *.deskpets-<time>.bak before every change. Sessions pick up new hooks after a restart.",
-                     "會保留你原有的 hooks；每次修改前會備份成 *.deskpets-<時間>.bak。已開著的 session 要重開才會載入新 hooks。"))
+            Text(L.t("hooks.backupHelp"))
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button(L.t("Install Hooks", "安裝 hooks")) { run { try app.installHooks() } }
-                Button(L.t("Remove Hooks", "移除 hooks")) { run { try app.uninstallHooks() } }
+                Button(L.t("hooks.install")) { run { try app.installHooks() } }
+                Button(L.t("hooks.remove")) { run { try app.uninstallHooks() } }
             }
             if !ui.message.isEmpty {
                 Text(ui.message).font(.caption.monospaced()).textSelection(.enabled)
@@ -337,17 +344,17 @@ private struct HooksTab: View {
     }
 
     private func status(_ provider: Provider) -> String {
-        app.hooksInstalled[provider] == true ? L.t("Installed", "已安裝") : L.t("Not installed", "未安裝")
+        app.hooksInstalled[provider] == true ? L.t("hooks.installed") : L.t("hooks.notInstalled")
     }
 
     private func run(_ action: () throws -> [HookInstaller.Change]) {
         do {
             let changes = try action()
             ui.message = changes.isEmpty
-                ? L.t("Nothing to change.", "沒有需要修改的地方。")
-                : changes.map { "✓ \($0.file.path)" + ($0.backup.map { "\n   backup: \($0.lastPathComponent)" } ?? "") }.joined(separator: "\n")
+                ? L.t("hooks.noChanges")
+                : changes.map { "✓ \($0.file.path)" + ($0.backup.map { "\n   " + L.format("hooks.backup", $0.lastPathComponent) } ?? "") }.joined(separator: "\n")
         } catch {
-            ui.message = error.localizedDescription
+            ui.message = L.error(error)
         }
     }
 }

@@ -25,11 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        showItem = menu.addItem(withTitle: L.t("Show Pets", "顯示寵物"), action: #selector(toggleShow), keyEquivalent: "")
-        menu.addItem(withTitle: L.t("Manage…", "管理…"), action: #selector(openManager), keyEquivalent: ",")
-        loginItem = menu.addItem(withTitle: L.t("Launch at Login", "開機時啟動"), action: #selector(toggleLogin), keyEquivalent: "")
+        showItem = menu.addItem(withTitle: L.t("pets.show"), action: #selector(toggleShow), keyEquivalent: "")
+        menu.addItem(withTitle: L.t("menu.manage"), action: #selector(openManager), keyEquivalent: ",")
+        loginItem = menu.addItem(withTitle: L.t("menu.login"), action: #selector(toggleLogin), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: L.t("Quit Desk Pets", "結束"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: L.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         for item in menu.items where item.action != #selector(NSApplication.terminate(_:)) {
             item.target = self
         }
@@ -55,6 +55,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
     }
 
+    func updateLanguage() {
+        guard let menu = statusItem?.menu else { return }
+        for item in menu.items {
+            switch item.action {
+            case #selector(toggleShow): item.title = L.t("pets.show")
+            case #selector(openManager): item.title = L.t("menu.manage")
+            case #selector(toggleLogin): item.title = L.t("menu.login")
+            case #selector(NSApplication.terminate(_:)): item.title = L.t("menu.quit")
+            default: break
+            }
+        }
+        manageWindow?.title = L.t("app.title")
+    }
+
     @objc private func toggleShow() {
         controller.setShowPets(!controller.config.showPets)
     }
@@ -75,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openManager() {
         if manageWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: ManageView().environmentObject(controller)))
-            window.title = L.t("Desk Pets", "Desk Pets 管理")
+            window.title = L.t("app.title")
             window.setContentSize(NSSize(width: 720, height: 460))
             window.isReleasedWhenClosed = false
             window.center()
@@ -83,14 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate()
         manageWindow?.makeKeyAndOrderFront(nil)
-    }
-}
-
-enum L {
-    static let chinese = Locale.preferredLanguages.first?.hasPrefix("zh") ?? false
-
-    static func t(_ english: String, _ zh: String) -> String {
-        chinese ? zh : english
     }
 }
 

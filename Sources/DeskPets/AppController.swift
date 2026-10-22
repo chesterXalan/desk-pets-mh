@@ -34,10 +34,12 @@ final class AppController: ObservableObject {
         library = CharacterLibrary(builtInRoot: Self.builtInCharacters, customRoot: paths.characters)
         namer = SessionNamer(home: paths.home)
         config = AppConfig.load(from: paths.config)
+        L.language = config.language
         try? FileManager.default.createDirectory(at: paths.sessions, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
         try? FileManager.default.createDirectory(at: paths.characters, withIntermediateDirectories: true)
         characters = library.list()
+        if config.migrateCharacterNames(using: characters) { save() }
         refreshHookStatus()
     }
 
@@ -157,19 +159,19 @@ final class AppController: ObservableObject {
         let characterMenu = NSMenu()
         let current = config.bindings.first { $0.id == id }?.character
         for character in characters {
-            let item = ClosureMenuItem(title: character.name) { [weak self] in self?.setCharacter(character.name, for: id) }
+            let item = ClosureMenuItem(title: character.displayName(in: L.language)) { [weak self] in self?.setCharacter(character.name, for: id) }
             item.state = character.name == current ? .on : .off
             characterMenu.addItem(item)
         }
-        let characterItem = NSMenuItem(title: L.t("Character", "換角色"), action: nil, keyEquivalent: "")
+        let characterItem = NSMenuItem(title: L.t("character.menu"), action: nil, keyEquivalent: "")
         characterItem.submenu = characterMenu
         menu.addItem(characterItem)
-        menu.addItem(ClosureMenuItem(title: L.t("Show Terminal", "切到終端機")) { [weak self] in self?.pets[id]?.activateTerminal() })
-        menu.addItem(ClosureMenuItem(title: L.t("Settings…", "設定…")) {
+        menu.addItem(ClosureMenuItem(title: L.t("terminal.show")) { [weak self] in self?.pets[id]?.activateTerminal() })
+        menu.addItem(ClosureMenuItem(title: L.t("settings.open")) {
             (NSApp.delegate as? AppDelegate)?.openManager()
         })
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(title: L.t("Unbind", "解除綁定")) { [weak self] in self?.unbind(id) })
+        menu.addItem(ClosureMenuItem(title: L.t("binding.unbind")) { [weak self] in self?.unbind(id) })
         return menu
     }
 
@@ -234,6 +236,18 @@ final class AppController: ObservableObject {
         config.animationDuration = duration
         save()
         updatePets()
+    }
+
+    func setLanguage(_ language: AppLanguage) {
+        L.language = language
+        config.language = language
+        save()
+        updatePets()
+        (NSApp.delegate as? AppDelegate)?.updateLanguage()
+    }
+
+    func characterName(_ name: String) -> String {
+        characters.first { $0.name == name }?.displayName(in: L.language) ?? name
     }
 
     // MARK: - Characters

@@ -22,6 +22,7 @@ mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Resources"
 cp "$BIN/DeskPets" "$BIN/deskpets-hook" "$STAGE/Contents/MacOS/"
 strip -x "$STAGE/Contents/MacOS/DeskPets" "$STAGE/Contents/MacOS/deskpets-hook"
 cp -R .build/Characters "$STAGE/Contents/Resources/Characters"
+cp -R Resources/*.lproj "$STAGE/Contents/Resources/"
 cp Resources/AppIcon.icns "$STAGE/Contents/Resources/AppIcon.icns"
 sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$STAGE/Contents/Info.plist"
 

@@ -159,10 +159,10 @@ final class PetWindowController: NSObject, NSWindowDelegate {
 
     private func stateName(_ state: PetState) -> String {
         switch state {
-        case .working: return L.t("working", "工作中")
-        case .waiting: return L.t("waiting for you", "等你回覆")
-        case .idle: return L.t("idle", "閒置")
-        case .unknown, .exited: return L.t("unknown (no hooks)", "未知（沒有 hooks）")
+        case .working: return L.t("state.working")
+        case .waiting: return L.t("state.waiting")
+        case .idle: return L.t("state.idle")
+        case .unknown, .exited: return L.t("state.noHooks")
         }
     }
 

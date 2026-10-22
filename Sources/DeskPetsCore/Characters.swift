@@ -6,8 +6,14 @@ public struct CharacterInfo: Identifiable, Hashable, Sendable {
     public var directory: URL
     public var builtIn: Bool
     public var displayScale: Double = 1
+    public var names: [String: String] = [:]
+    public var aliases: [String] = []
 
     public var id: String { name }
+
+    public func displayName(in language: AppLanguage) -> String {
+        names[language.resolved().rawValue] ?? names[AppLanguage.english.rawValue] ?? name
+    }
 
     public func gif(for state: PetState) -> URL {
         let idle = directory.appendingPathComponent("idle.gif")
@@ -43,12 +49,13 @@ public struct CharacterLibrary: Sendable {
 
     public func list() -> [CharacterInfo] {
         let builtIn = Self.scan(builtInRoot, builtIn: true)
-        let names = Set(builtIn.map(\.name))
+        let names = Set(builtIn.flatMap { [$0.name] + $0.aliases })
         return builtIn + Self.scan(customRoot, builtIn: false).filter { !names.contains($0.name) }
     }
 
     public func character(named name: String) -> CharacterInfo? {
-        list().first { $0.name == name }
+        let characters = list()
+        return characters.first { $0.name == name } ?? characters.first { $0.builtIn && $0.aliases.contains(name) }
     }
 
     @discardableResult
@@ -97,16 +104,24 @@ public struct CharacterLibrary: Sendable {
             at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return [] }
         return entries
             .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("idle.gif").path) }
-            .map { CharacterInfo(name: $0.lastPathComponent, directory: $0, builtIn: builtIn,
-                                 displayScale: displayScale(in: $0)) }
+            .map { directory in
+                let options = metadata(in: directory)
+                let scale = options?.displayScale ?? 1
+                return CharacterInfo(name: directory.lastPathComponent, directory: directory, builtIn: builtIn,
+                                     displayScale: (0.5...2).contains(scale) ? scale : 1,
+                                     names: options?.names ?? [:], aliases: options?.aliases ?? [])
+            }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    private static func displayScale(in directory: URL) -> Double {
-        struct Options: Decodable { var displayScale: Double }
-        guard let data = try? Data(contentsOf: directory.appendingPathComponent("character.json")),
-              let options = try? JSONDecoder().decode(Options.self, from: data),
-              (0.5...2).contains(options.displayScale) else { return 1 }
-        return options.displayScale
+    private struct Metadata: Decodable {
+        var displayScale: Double?
+        var names: [String: String]?
+        var aliases: [String]?
+    }
+
+    private static func metadata(in directory: URL) -> Metadata? {
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("character.json")) else { return nil }
+        return try? JSONDecoder().decode(Metadata.self, from: data)
     }
 }

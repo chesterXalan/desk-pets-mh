@@ -23,5 +23,6 @@ import Testing
         let config = try JSONDecoder().decode(AppConfig.self, from: Data("{\"petSize\":64}".utf8))
         #expect(config.animationDuration == nil)
         #expect(config.petSize == 64)
+        #expect(config.language == .system)
     }
 }

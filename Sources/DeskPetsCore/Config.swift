@@ -37,13 +37,15 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var showPets = true
     public var petSize = 96
     public var animationDuration: Double?
+    public var language: AppLanguage
     public var bindings: [PetBinding] = []
 
     public init(showPets: Bool = true, petSize: Int = 96, bindings: [PetBinding] = [],
-                animationDuration: Double? = nil) {
+                animationDuration: Double? = nil, language: AppLanguage = .system) {
         self.showPets = showPets
         self.petSize = petSize
         self.bindings = bindings
+        self.language = language
         self.animationDuration = animationDuration.flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
     }
 
@@ -52,8 +54,22 @@ public struct AppConfig: Codable, Equatable, Sendable {
         showPets = try container.decodeIfPresent(Bool.self, forKey: .showPets) ?? true
         petSize = try container.decodeIfPresent(Int.self, forKey: .petSize) ?? 96
         bindings = try container.decodeIfPresent([PetBinding].self, forKey: .bindings) ?? []
+        language = (try? container.decode(AppLanguage.self, forKey: .language)) ?? .system
         animationDuration = (try? container.decodeIfPresent(Double.self, forKey: .animationDuration))
             .flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
+    }
+
+    @discardableResult
+    public mutating func migrateCharacterNames(using characters: [CharacterInfo]) -> Bool {
+        var changed = false
+        for index in bindings.indices {
+            let oldName = bindings[index].character
+            guard !characters.contains(where: { $0.name == oldName }),
+                  let character = characters.first(where: { $0.builtIn && $0.aliases.contains(oldName) }) else { continue }
+            bindings[index].character = character.name
+            changed = true
+        }
+        return changed
     }
 
     /// Missing or unreadable config yields defaults; a broken file is never fatal.
