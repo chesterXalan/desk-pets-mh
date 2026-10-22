@@ -400,6 +400,58 @@ private func temporaryDirectory() throws -> URL {
         return url
     }
 
+    @Test func codexTitlesFollowSessionIndexAndRefreshAfterRename() throws {
+        let home = try temporaryHome()
+        let folder = home.appendingPathComponent(".codex")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let index = folder.appendingPathComponent("session_index.jsonl")
+        let id = "11111111-1111-1111-1111-111111111111"
+        let otherId = "22222222-2222-2222-2222-222222222222"
+        try Data("{\"id\":\"\(id)\",\"thread_name\":\"  魔物桌寵  \",\"updated_at\":\"2026-10-22T10:00:00Z\"}\n".utf8).write(to: index)
+        let sessions = [
+            AgentSession(provider: .codex, pid: 1, startTime: 100, cwd: "/a", launchSessionId: id),
+            AgentSession(provider: .codex, pid: 2, startTime: 100, cwd: "/a", launchSessionId: otherId),
+            AgentSession(provider: .claude, pid: 3, startTime: 100, cwd: "/a", launchSessionId: id),
+        ]
+        let namer = SessionNamer(home: home)
+        let now = Date()
+        let names = namer.names(for: sessions, records: [], now: now)
+        #expect(names[sessions[0].id] == "魔物桌寵")
+        #expect(names[sessions[1].id] == nil)
+        #expect(names[sessions[2].id] == nil)
+
+        let handle = try FileHandle(forWritingTo: index)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{\"id\":\"\(id)\",\"thread_name\":\"重新命名\"}\n{\"id\":".utf8))
+        try handle.close()
+        #expect(namer.names(for: sessions, records: [], now: now.addingTimeInterval(5))[sessions[0].id] == "魔物桌寵")
+        #expect(namer.names(for: sessions, records: [], now: now.addingTimeInterval(60))[sessions[0].id] == "重新命名")
+
+        try FileManager.default.removeItem(at: index)
+        #expect(namer.names(for: sessions, records: [], now: now.addingTimeInterval(120))[sessions[0].id] == nil)
+    }
+
+    @Test func codexIndexUsesCurrentHookSessionAndPreservesFallback() throws {
+        let home = try temporaryHome()
+        let folder = home.appendingPathComponent(".codex")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let current = "11111111-1111-1111-1111-111111111111"
+        let previous = "22222222-2222-2222-2222-222222222222"
+        let lines = [
+            "{\"id\":\"\(previous)\",\"thread_name\":\"Old conversation\"}",
+            "{\"id\":\"\(current)\",\"thread_name\":\"Current conversation\"}",
+            "{\"id\":\"\(current)\",\"thread_name\":42}",
+        ]
+        try Data(lines.joined(separator: "\n").utf8).write(to: folder.appendingPathComponent("session_index.jsonl"))
+        let session = AgentSession(provider: .codex, pid: 1, startTime: 100, cwd: "/a", launchSessionId: previous)
+        var record = HookRecord(provider: .codex, sessionId: current, state: .idle, event: "Stop", cwd: "/a",
+                                pid: 1, pidStart: 100, title: "Hook title", updatedAt: 101)
+        let namer = SessionNamer(home: home)
+        #expect(namer.names(for: [session], records: [record])[session.id] == "Current conversation")
+        record.sessionId = "33333333-3333-3333-3333-333333333333"
+        #expect(namer.names(for: [session], records: [record])[session.id] == "Hook title")
+    }
+
     @Test func parsesLastTitlesAndIgnoresMentionsInMessages() {
         let lines = [
             #"{"type":"ai-title","aiTitle":"First AI title","sessionId":"s"}"#,

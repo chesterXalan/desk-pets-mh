@@ -126,11 +126,12 @@ public enum CmuxTree {
     }
 }
 
-/// Picks a friendly name per session: /rename title, then cmux tab title, then aiTitle.
-/// Reads are cached; call from one serial queue.
+/// 優先使用對話名稱，再依序採用 cmux 標題、AI 標題或 hook 標題。
+/// 標題讀取有快取，須從同一個序列佇列呼叫。
 public final class SessionNamer: @unchecked Sendable {
     public var transcriptInterval: TimeInterval = 30
     public var cmuxInterval: TimeInterval = 20
+    public var codexInterval: TimeInterval = 30
     /// Runs the cmux CLI and returns stdout; replaceable in tests.
     public var runCmux: (String, [String]) -> Data? = SessionNamer.run
 
@@ -138,6 +139,8 @@ public final class SessionNamer: @unchecked Sendable {
     private var transcripts: [String: (checked: Date, size: UInt64, titles: TranscriptTitles)] = [:]
     private var cmuxTitles: [String: String] = [:]
     private var cmuxChecked: Date?
+    private var codexTitles: [String: String] = [:]
+    private var codexChecked: Date?
 
     public init(home: URL) {
         self.home = home
@@ -146,6 +149,7 @@ public final class SessionNamer: @unchecked Sendable {
     /// session id (AgentSession.id) → friendly name, for sessions that have one.
     public func names(for sessions: [AgentSession], records: [HookRecord], now: Date = Date()) -> [String: String] {
         refreshCmux(for: sessions, now: now)
+        refreshCodex(for: sessions, now: now)
         var names: [String: String] = [:]
         var used = Set<String>()
         for session in sessions {
@@ -156,7 +160,10 @@ public final class SessionNamer: @unchecked Sendable {
                 titles = transcriptTitles(url, now: now)
             }
             let cmuxTitle = session.cmux.flatMap { cmuxTitles[$0.surfaceId.uppercased()] }
-            if let name = titles.customTitle ?? cmuxTitle ?? titles.aiTitle ?? record?.title {
+            let codexID = record.flatMap { $0.sessionId.isEmpty ? nil : $0.sessionId }
+                ?? session.sessionId ?? session.launchSessionId
+            let codexTitle = session.provider == .codex ? codexID.flatMap { codexTitles[$0.lowercased()] } : nil
+            if let name = codexTitle ?? titles.customTitle ?? cmuxTitle ?? titles.aiTitle ?? record?.title {
                 names[session.id] = name
             }
         }
@@ -191,6 +198,19 @@ public final class SessionNamer: @unchecked Sendable {
         }
         transcripts[url.path] = (now, read.size, titles)
         return titles
+    }
+
+    private func refreshCodex(for sessions: [AgentSession], now: Date) {
+        guard sessions.contains(where: { $0.provider == .codex }) else {
+            codexTitles = [:]
+            codexChecked = nil
+            return
+        }
+        if let checked = codexChecked, now.timeIntervalSince(checked) < codexInterval { return }
+        codexChecked = now
+        let url = home.appendingPathComponent(".codex/session_index.jsonl")
+        let data = (try? Data(contentsOf: url, options: .mappedIfSafe)) ?? Data()
+        codexTitles = CodexSessionIndex.titles(in: data)
     }
 
     private func refreshCmux(for sessions: [AgentSession], now: Date) {
