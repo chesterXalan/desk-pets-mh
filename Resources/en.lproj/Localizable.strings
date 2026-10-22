@@ -14,8 +14,6 @@
 "state.label" = "State";
 "pet.label" = "Pet";
 "binding.none" = "None";
-"binding.offline" = "Waiting for their session to start again:";
-"action.remove" = "Remove";
 "state.working" = "Working";
 "state.waiting" = "Waiting";
 "state.idle" = "Idle";
@@ -24,7 +22,6 @@
 "character.builtIn" = "Built-in";
 "action.delete" = "Delete…";
 "character.add" = "Add Character…";
-"character.files" = "A character is idle.gif, plus optional working.gif and waiting.gif.";
 "character.deleteQuestion" = "Delete this character?";
 "character.deleteNamed" = "Delete “%@”";
 "character.idle" = "Idle (required)";
@@ -34,7 +31,7 @@
 "character.name" = "Name";
 "action.clear" = "Clear";
 "action.choose" = "Choose…";
-"character.drop" = "Or drop 1–3 GIFs here (named idle / working / waiting)";
+"character.drop" = "Drop 1–3 GIFs here, then check their animation slots";
 "action.cancel" = "Cancel";
 "action.add" = "Add";
 "hooks.help" = "Hooks tell Desk Pets whether a session is working, waiting for you, or idle. Without them every pet shows “unknown”.";
@@ -47,7 +44,7 @@
 "character.menu" = "Character";
 "terminal.show" = "Show Terminal";
 "settings.open" = "Settings…";
-"binding.unbind" = "Unbind";
+"binding.hide" = "Hide for This Session";
 "menu.manage" = "Manage…";
 "menu.login" = "Launch at Login";
 "menu.quit" = "Quit Desk Pets";

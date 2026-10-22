@@ -154,46 +154,56 @@ private func temporaryDirectory() throws -> URL {
         let url = directory.appendingPathComponent("nested/config.json")
         var config = AppConfig(showPets: false, petSize: 128)
         config.bindings = [PetBinding(provider: .codex, cwd: "/p", character: "ghost", pid: 3, pidStart: 4, x: 10, y: 20)]
+        config.rememberCharacter(from: config.bindings[0])
         try config.save(to: url)
         #expect(AppConfig.load(from: url) == config)
 
         try Data(#"{"petSize": 64}"#.utf8).write(to: url)
         let partial = AppConfig.load(from: url)
         #expect(partial.petSize == 64 && partial.showPets && partial.bindings.isEmpty)
+        #expect(partial.language == .system && partial.directoryPets.isEmpty)
 
         try Data("not json".utf8).write(to: url)
         #expect(AppConfig.load(from: url) == AppConfig())
     }
 
     @Test func reattachesBindingAfterRestart() {
-        var bindings = [PetBinding(provider: .claude, cwd: "/work/app", character: "cat", pid: 100, pidStart: 1000)]
+        var config = AppConfig(bindings: [PetBinding(provider: .claude, cwd: "/work/app", character: "cat",
+                                                    pid: 100, pidStart: 1000, x: 12, y: 34)])
         let restarted = [
             AgentSession(provider: .codex, pid: 300, startTime: 3000, cwd: "/work/app"),
             AgentSession(provider: .claude, pid: 200, startTime: 2000, cwd: "/work/app"),
             AgentSession(provider: .claude, pid: 250, startTime: 2500, cwd: "/work/app"),
         ]
-        let resolved = BindingResolver.resolve(&bindings, sessions: restarted)
-        #expect(resolved[bindings[0].id] == restarted[1].id)
-        #expect(bindings[0].pid == 200 && bindings[0].pidStart == 2000)
+        let resolved = BindingResolver.resolve(&config, sessions: restarted, characters: ["cat", "ghost", "dragon"], choose: { $0.first })
+        #expect(config.bindings.map(\.character) == ["cat", "ghost", "dragon"])
+        #expect(resolved[config.bindings[0].id] == restarted[1].id)
+        #expect(config.bindings[0].pid == 200 && config.bindings[0].pidStart == 2000)
+        #expect(config.bindings[0].x == 12 && config.bindings[0].y == 34)
+        #expect(config.directoryPets["/work/app"]?.character == "cat")
     }
 
     @Test func exactMatchesAreNotStolen() {
         let a = PetBinding(provider: .claude, cwd: "/w", character: "cat", pid: 2, pidStart: 20)
         let b = PetBinding(provider: .claude, cwd: "/w", character: "ghost", pid: 99, pidStart: 1)
-        var bindings = [b, a]
+        var config = AppConfig(bindings: [b, a])
         let sessions = [AgentSession(provider: .claude, pid: 1, startTime: 10, cwd: "/w"),
                         AgentSession(provider: .claude, pid: 2, startTime: 20, cwd: "/w")]
-        let resolved = BindingResolver.resolve(&bindings, sessions: sessions)
+        let resolved = BindingResolver.resolve(&config, sessions: sessions, characters: ["cat", "ghost"], choose: { $0.first })
         #expect(resolved[a.id] == sessions[1].id)
-        #expect(resolved[b.id] == sessions[0].id)
-        #expect(bindings[0].pid == 1)
+        #expect(config.bindings[0].character == "ghost" && config.bindings[0].pid == 1)
+        #expect(config.bindings[1] == a)
+        #expect(!config.bindings.contains { $0.id == b.id })
     }
 
-    @Test func unmatchedBindingStaysOffline() {
-        var bindings = [PetBinding(provider: .claude, cwd: "/gone", character: "cat", pid: 5, pidStart: 5)]
-        let resolved = BindingResolver.resolve(&bindings, sessions: [AgentSession(provider: .claude, pid: 6, startTime: 6, cwd: "/other")])
-        #expect(resolved.isEmpty)
-        #expect(bindings[0].pid == 5)
+    @Test func endedBindingsBecomeDirectoryPreferences() {
+        var config = AppConfig(bindings: [PetBinding(provider: .claude, cwd: "/gone", character: "cat", pid: 5, pidStart: 5)])
+        let session = AgentSession(provider: .codex, pid: 6, startTime: 6, cwd: "/other")
+        let resolved = BindingResolver.resolve(&config, sessions: [session], characters: ["cat", "ghost"], choose: { $0.last })
+        #expect(config.bindings.count == 1 && config.bindings[0].pid == 6)
+        #expect(resolved[config.bindings[0].id] == session.id)
+        #expect(config.directoryPets["/gone"]?.character == "cat")
+        #expect(config.directoryPets["/other"]?.character == "ghost")
     }
 }
 

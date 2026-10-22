@@ -25,13 +25,17 @@ Copy `build/DeskPets.app` to `/Applications` and open it.
 ## Use
 
 1. Open **Manage… → Hooks** from the menu bar, install the hooks, and restart your CLI sessions.
-2. In **Sessions**, assign a monster to each session. Bindings reconnect when sessions restart in the same directory.
+2. Sessions get pets automatically. Each directory remembers your last character choice; additional sessions
+   get random characters, avoiding duplicates when possible. Change a pet in **Sessions** or its context menu.
 3. Right-click a pet → **Settings…** to choose a language, size, or animation duration.
 
-The language follows macOS by default, with manual English / 繁體中文 / 日本語 selection.
+The language follows the primary macOS language by default, falling back to English when unsupported.
+You can also select English / 繁體中文 / 日本語 manually.
 Animation duration applies to a complete loop: four frames at 1.2 seconds means 0.3 seconds per frame.
 Settings apply immediately. Turn off the duration override to use each GIF's original timing.
 Size is the base display size; per-character scale adjustments keep monsters visually balanced.
+Ended sessions disappear automatically; directory preferences remain for the next launch.
+Selecting **None** hides a pet for that session without forgetting the directory's character choice.
 
 Double-click a pet or choose **Show Terminal** to focus its session. For native Ghostty tabs, Ghostty 1.3+
 and macOS Automation permission are required. DeskPets matches the session's working directory, then its
@@ -42,7 +46,8 @@ that tab. It uses the client's working directory and existing tmux terminal titl
 
 ## Add characters
 
-Use **Characters → Add Character…** to import `idle.gif`, with optional `working.gif` and `waiting.gif`.
+Use **Characters → Add Character…** to choose an idle GIF, with optional working and waiting animations.
+Source filenames are unrestricted; the app copies and names the files automatically in the character's folder.
 To add a built-in monster, see [Character assets](docs/characters.md).
 PNG frames and character metadata are versioned; GIFs are generated during the build.
 

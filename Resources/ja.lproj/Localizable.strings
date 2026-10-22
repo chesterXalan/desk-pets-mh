@@ -14,8 +14,6 @@
 "state.label" = "状態";
 "pet.label" = "ペット";
 "binding.none" = "なし";
-"binding.offline" = "セッションの再開を待っているペット：";
-"action.remove" = "解除";
 "state.working" = "作業中";
 "state.waiting" = "入力待ち";
 "state.idle" = "待機中";
@@ -24,7 +22,6 @@
 "character.builtIn" = "内蔵";
 "action.delete" = "削除…";
 "character.add" = "キャラクターを追加…";
-"character.files" = "idle.gif は必須、working.gif と waiting.gif は任意です。";
 "character.deleteQuestion" = "このキャラクターを削除しますか？";
 "character.deleteNamed" = "「%@」を削除";
 "character.idle" = "待機中（必須）";
@@ -34,7 +31,7 @@
 "character.name" = "名前";
 "action.clear" = "クリア";
 "action.choose" = "選択…";
-"character.drop" = "GIF を 1〜3 個ここにドロップ（ファイル名：idle / working / waiting）";
+"character.drop" = "GIF を 1〜3 個ドロップし、各動作への割り当てを確認";
 "action.cancel" = "キャンセル";
 "action.add" = "追加";
 "hooks.help" = "フックでセッションの作業中・入力待ち・待機中を判別します。未設定の場合は「不明」と表示されます。";
@@ -47,7 +44,7 @@
 "character.menu" = "キャラクター";
 "terminal.show" = "ターミナルを表示";
 "settings.open" = "設定…";
-"binding.unbind" = "割り当てを解除";
+"binding.hide" = "このセッションのペットを非表示";
 "menu.manage" = "管理…";
 "menu.login" = "ログイン時に起動";
 "menu.quit" = "Desk Pets を終了";

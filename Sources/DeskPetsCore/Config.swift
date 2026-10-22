@@ -1,7 +1,6 @@
 import Foundation
 
-/// A pet bound to a session. The session is remembered by pid + start time, and by provider + cwd
-/// so the pet re-attaches when the session restarts with a new pid.
+/// 目前工作階段的角色與位置；空白角色代表隱藏此工作階段的寵物。
 public struct PetBinding: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var provider: Provider
@@ -30,6 +29,19 @@ public struct PetBinding: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// 同一目錄下次啟動時優先使用的角色與位置，不區分 CLI 類型。
+public struct DirectoryPetPreference: Codable, Equatable, Sendable {
+    public var character: String
+    public var x: Double?
+    public var y: Double?
+
+    public init(character: String, x: Double? = nil, y: Double? = nil) {
+        self.character = character
+        self.x = x
+        self.y = y
+    }
+}
+
 public struct AppConfig: Codable, Equatable, Sendable {
     public static let sizes = [64, 96, 128, 192, 256]
     public static let animationDurationRange = 0.4...6.0
@@ -39,13 +51,16 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var animationDuration: Double?
     public var language: AppLanguage
     public var bindings: [PetBinding] = []
+    public var directoryPets: [String: DirectoryPetPreference]
 
     public init(showPets: Bool = true, petSize: Int = 96, bindings: [PetBinding] = [],
-                animationDuration: Double? = nil, language: AppLanguage = .system) {
+                animationDuration: Double? = nil, language: AppLanguage = .system,
+                directoryPets: [String: DirectoryPetPreference] = [:]) {
         self.showPets = showPets
         self.petSize = petSize
         self.bindings = bindings
         self.language = language
+        self.directoryPets = directoryPets
         self.animationDuration = animationDuration.flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
     }
 
@@ -54,6 +69,7 @@ public struct AppConfig: Codable, Equatable, Sendable {
         showPets = try container.decodeIfPresent(Bool.self, forKey: .showPets) ?? true
         petSize = try container.decodeIfPresent(Int.self, forKey: .petSize) ?? 96
         bindings = try container.decodeIfPresent([PetBinding].self, forKey: .bindings) ?? []
+        directoryPets = try container.decodeIfPresent([String: DirectoryPetPreference].self, forKey: .directoryPets) ?? [:]
         language = (try? container.decode(AppLanguage.self, forKey: .language)) ?? .system
         animationDuration = (try? container.decodeIfPresent(Double.self, forKey: .animationDuration))
             .flatMap { Self.animationDurationRange.contains($0) ? $0 : nil }
@@ -69,7 +85,19 @@ public struct AppConfig: Codable, Equatable, Sendable {
             bindings[index].character = character.name
             changed = true
         }
+        for directory in Array(directoryPets.keys) {
+            guard let oldName = directoryPets[directory]?.character,
+                  !characters.contains(where: { $0.name == oldName }),
+                  let character = characters.first(where: { $0.builtIn && $0.aliases.contains(oldName) }) else { continue }
+            directoryPets[directory]?.character = character.name
+            changed = true
+        }
         return changed
+    }
+
+    public mutating func rememberCharacter(from binding: PetBinding) {
+        guard !binding.character.isEmpty else { return }
+        directoryPets[binding.cwd] = DirectoryPetPreference(character: binding.character, x: binding.x, y: binding.y)
     }
 
     /// Missing or unreadable config yields defaults; a broken file is never fatal.
@@ -87,29 +115,48 @@ public struct AppConfig: Codable, Equatable, Sendable {
 }
 
 public enum BindingResolver {
-    /// Pairs bindings with live sessions: exact pid match first, then same provider + cwd
-    /// (oldest session first). Re-attached bindings get the new pid written back.
-    /// Returns binding id → session id.
-    public static func resolve(_ bindings: inout [PetBinding], sessions: [AgentSession]) -> [UUID: String] {
+    /// 保留在線配對，為新工作階段自動挑選角色，並移除已結束的工作階段。
+    /// 每個目錄第一隻優先沿用偏好，其餘角色優先避開桌面上已使用的角色。
+    public static func resolve(_ config: inout AppConfig, sessions: [AgentSession], characters: [String],
+                               choose: ([String]) -> String? = { $0.randomElement() }) -> [UUID: String] {
+        let available = Set(characters)
+        for binding in config.bindings where config.directoryPets[binding.cwd] == nil && available.contains(binding.character) {
+            config.rememberCharacter(from: binding)
+        }
+        let retained = config.bindings.filter { binding in
+            (binding.character.isEmpty || available.contains(binding.character)) && sessions.contains(where: binding.matchesExactly)
+        }
+        var usedCharacters = Set(retained.map(\.character))
+        var visitedDirectories = Set<String>()
+        var active: [PetBinding] = []
         var result: [UUID: String] = [:]
-        var used = Set<String>()
-        for binding in bindings {
-            if let session = sessions.first(where: { binding.matchesExactly($0) && !used.contains($0.id) }) {
+        for session in sessions.sorted(by: { $0.startTime < $1.startTime }) {
+            let firstInDirectory = visitedDirectories.insert(session.cwd).inserted
+            if let binding = retained.first(where: { $0.matchesExactly(session) && result[$0.id] == nil }) {
+                active.append(binding)
                 result[binding.id] = session.id
-                used.insert(session.id)
+                continue
+            }
+            let preference = config.directoryPets[session.cwd]
+            let unused = characters.filter { !usedCharacters.contains($0) }
+            let localCharacters = Set((retained + active).filter { $0.cwd == session.cwd }.map(\.character))
+            let locallyUnused = characters.filter { !localCharacters.contains($0) }
+            let candidates = !unused.isEmpty ? unused : (!locallyUnused.isEmpty ? locallyUnused : characters)
+            let remembered = firstInDirectory ? preference?.character : nil
+            guard let character = remembered.flatMap({ available.contains($0) ? $0 : nil }) ?? choose(candidates) else { continue }
+            let existing = config.bindings.first { $0.matchesExactly(session) }
+            let binding = PetBinding(id: existing?.id ?? UUID(), provider: session.provider, cwd: session.cwd,
+                                     character: character, pid: session.pid, pidStart: session.startTime,
+                                     x: existing?.x ?? (firstInDirectory ? preference?.x : nil),
+                                     y: existing?.y ?? (firstInDirectory ? preference?.y : nil))
+            active.append(binding)
+            result[binding.id] = session.id
+            usedCharacters.insert(character)
+            if preference.map({ !available.contains($0.character) }) ?? true {
+                config.rememberCharacter(from: binding)
             }
         }
-        let byAge = sessions.sorted { $0.startTime < $1.startTime }
-        for index in bindings.indices where result[bindings[index].id] == nil {
-            let binding = bindings[index]
-            guard let session = byAge.first(where: { candidate in
-                !used.contains(candidate.id) && candidate.provider == binding.provider && candidate.cwd == binding.cwd
-            }) else { continue }
-            bindings[index].pid = session.pid
-            bindings[index].pidStart = session.startTime
-            result[binding.id] = session.id
-            used.insert(session.id)
-        }
+        config.bindings = active
         return result
     }
 }

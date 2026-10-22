@@ -12,11 +12,15 @@ import Testing
         #expect(AppLanguage.system.resolved(preferredLanguages: ["zh-TW"]) == .traditionalChinese)
         #expect(AppLanguage.system.resolved(preferredLanguages: ["zh_HK"]) == .traditionalChinese)
         #expect(AppLanguage.system.resolved(preferredLanguages: ["ja-JP", "en"]) == .japanese)
-        #expect(AppLanguage.system.resolved(preferredLanguages: ["fr-FR", "ja"]) == .japanese)
+        #expect(AppLanguage.system.resolved(preferredLanguages: ["fr-FR", "ja"]) == .english)
+        #expect(AppLanguage.system.resolved(preferredLanguages: ["zh-Hant-TW", "en"]) == .traditionalChinese)
+        #expect(AppLanguage.system.resolved(preferredLanguages: ["zh-Hans-CN", "zh-Hant"]) == .english)
+        #expect(AppLanguage.system.resolved(preferredLanguages: ["zh-CN"]) == .english)
         #expect(AppLanguage.system.resolved(preferredLanguages: ["en-GB", "ja"]) == .english)
         #expect(AppLanguage.system.resolved(preferredLanguages: ["de"]) == .english)
         #expect(AppLanguage.system.resolved(preferredLanguages: []) == .english)
         #expect(AppLanguage.japanese.resolved(preferredLanguages: ["zh-TW"]) == .japanese)
+        #expect(AppConfig().language == .system)
     }
 
     @Test func translationsHaveMatchingKeysAndFormats() throws {

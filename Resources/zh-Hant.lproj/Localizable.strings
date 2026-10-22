@@ -14,8 +14,6 @@
 "state.label" = "狀態";
 "pet.label" = "寵物";
 "binding.none" = "不綁定";
-"binding.offline" = "等待工作階段重新開啟的寵物：";
-"action.remove" = "移除";
 "state.working" = "工作中";
 "state.waiting" = "等你回覆";
 "state.idle" = "閒置";
@@ -24,7 +22,6 @@
 "character.builtIn" = "內建";
 "action.delete" = "刪除…";
 "character.add" = "新增角色…";
-"character.files" = "idle.gif 必填，working.gif 與 waiting.gif 選填。";
 "character.deleteQuestion" = "刪除這個角色？";
 "character.deleteNamed" = "刪除「%@」";
 "character.idle" = "閒置（必填）";
@@ -34,7 +31,7 @@
 "character.name" = "名字";
 "action.clear" = "清除";
 "action.choose" = "選擇…";
-"character.drop" = "或拖入 1～3 張 GIF（檔名 idle／working／waiting）";
+"character.drop" = "拖入 1～3 張 GIF，再確認各動作的配置";
 "action.cancel" = "取消";
 "action.add" = "新增";
 "hooks.help" = "Hooks 讓寵物知道工作階段是工作中、等你回覆或閒置；未安裝時會顯示「未知」。";
@@ -47,7 +44,7 @@
 "character.menu" = "換角色";
 "terminal.show" = "切到終端機";
 "settings.open" = "設定…";
-"binding.unbind" = "解除綁定";
+"binding.hide" = "隱藏此工作階段的寵物";
 "menu.manage" = "管理…";
 "menu.login" = "登入時啟動";
 "menu.quit" = "結束 Desk Pets";

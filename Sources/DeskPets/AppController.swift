@@ -27,6 +27,7 @@ final class AppController: ObservableObject {
     private let scanQueue = DispatchQueue(label: "deskpets.scan", qos: .utility)
     private let scanCache = ClassificationCache()
     private let namer: SessionNamer
+    private var hasScannedSessions = false
     private var names: [String: String] = [:]
     private var scanCount = 0
 
@@ -71,6 +72,7 @@ final class AppController: ObservableObject {
             if sweep { Self.removeStaleRecords(in: directory) }
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.hasScannedSessions = true
                 self.processes = found
                 self.names = names
                 self.refresh()
@@ -98,15 +100,16 @@ final class AppController: ObservableObject {
     }
 
     private func refresh() {
+        guard hasScannedSessions else { return }
         let merged = SessionMerger.merge(processes, records: records).map { session in
             var session = session
             if let name = names[session.id] { session.title = name }
             return session
         }
-        var bindings = config.bindings
-        resolved = BindingResolver.resolve(&bindings, sessions: merged)
-        if bindings != config.bindings {
-            config.bindings = bindings
+        var updated = config
+        resolved = BindingResolver.resolve(&updated, sessions: merged, characters: characters.map(\.name))
+        if updated != config {
+            config = updated
             saveSoon()
         }
         if merged != sessions {
@@ -124,7 +127,7 @@ final class AppController: ObservableObject {
         var alive = Set<UUID>()
         for binding in config.bindings {
             guard let sessionId = resolved[binding.id], let session = byId[sessionId],
-                  let character = characters.first(where: { $0.name == binding.character }) ?? characters.first else { continue }
+                  let character = characters.first(where: { $0.name == binding.character }) else { continue }
             alive.insert(binding.id)
             let size = CGFloat(config.petSize) * character.displayScale
             let pet = pets[binding.id] ?? makePet(for: binding, size: size)
@@ -171,7 +174,7 @@ final class AppController: ObservableObject {
             (NSApp.delegate as? AppDelegate)?.openManager()
         })
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(title: L.t("binding.unbind")) { [weak self] in self?.unbind(id) })
+        menu.addItem(ClosureMenuItem(title: L.t("binding.hide")) { [weak self] in self?.hidePet(id) })
         return menu
     }
 
@@ -181,19 +184,17 @@ final class AppController: ObservableObject {
         config.bindings.first { resolved[$0.id] == session.id }
     }
 
-    var offlineBindings: [PetBinding] {
-        config.bindings.filter { resolved[$0.id] == nil }
-    }
-
-    /// Binds `character` to the session, or unbinds it when `character` is nil.
+    /// 選擇角色並記住目錄偏好；nil 只隱藏目前工作階段。
     func setPet(_ character: String?, for session: AgentSession) {
         if let existing = binding(for: session) {
-            if let character { setCharacter(character, for: existing.id) } else { unbind(existing.id) }
+            if let character { setCharacter(character, for: existing.id) } else { hidePet(existing.id) }
             return
         }
         guard let character else { return }
-        config.bindings.append(PetBinding(provider: session.provider, cwd: session.cwd, character: character,
-                                          pid: session.pid, pidStart: session.startTime))
+        let binding = PetBinding(provider: session.provider, cwd: session.cwd, character: character,
+                                 pid: session.pid, pidStart: session.startTime)
+        config.bindings.append(binding)
+        config.rememberCharacter(from: binding)
         save()
         refresh()
     }
@@ -201,12 +202,14 @@ final class AppController: ObservableObject {
     func setCharacter(_ name: String, for id: UUID) {
         guard let index = config.bindings.firstIndex(where: { $0.id == id }) else { return }
         config.bindings[index].character = name
+        config.rememberCharacter(from: config.bindings[index])
         save()
         refresh()
     }
 
-    func unbind(_ id: UUID) {
-        config.bindings.removeAll { $0.id == id }
+    func hidePet(_ id: UUID) {
+        guard let index = config.bindings.firstIndex(where: { $0.id == id }) else { return }
+        config.bindings[index].character = ""
         save()
         refresh()
     }
@@ -215,6 +218,9 @@ final class AppController: ObservableObject {
         guard let index = config.bindings.firstIndex(where: { $0.id == id }) else { return }
         config.bindings[index].x = origin.x
         config.bindings[index].y = origin.y
+        if config.directoryPets[config.bindings[index].cwd]?.character == config.bindings[index].character {
+            config.rememberCharacter(from: config.bindings[index])
+        }
         saveSoon()
     }
 

@@ -101,18 +101,6 @@ private struct SessionsTab: View {
                 }
                 .width(150)
             }
-            if !app.offlineBindings.isEmpty {
-                Text(L.t("binding.offline"))
-                    .font(.caption).foregroundStyle(.secondary)
-                ForEach(app.offlineBindings) { binding in
-                    HStack {
-                        Text(verbatim: "\(app.characterName(binding.character)) · \(binding.provider.rawValue) · \(binding.cwd)")
-                            .font(.caption).lineLimit(1).truncationMode(.middle)
-                        Spacer()
-                        Button(L.t("action.remove")) { app.unbind(binding.id) }.controlSize(.small)
-                    }
-                }
-            }
             HStack {
                 Toggle(L.t("pets.show"), isOn: Binding(get: { app.config.showPets }, set: { app.setShowPets($0) }))
                 Spacer()
@@ -188,8 +176,6 @@ private struct CharactersTab: View {
             }
             HStack {
                 Button(L.t("character.add")) { ui.adding = true }
-                Text(L.t("character.files"))
-                    .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 SizePicker()
             }
@@ -340,6 +326,7 @@ private struct HooksTab: View {
             }
             Spacer()
         }
+        .padding(12)
         .onAppear { app.refreshHookStatus() }
     }
 

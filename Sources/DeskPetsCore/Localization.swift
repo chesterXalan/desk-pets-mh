@@ -8,15 +8,19 @@ public enum AppLanguage: String, Codable, CaseIterable, Sendable {
 
     public func resolved(preferredLanguages: [String] = Locale.preferredLanguages) -> AppLanguage {
         guard self == .system else { return self }
-        for language in preferredLanguages {
-            switch language.lowercased().replacingOccurrences(of: "_", with: "-").split(separator: "-").first {
-            case "en": return .english
-            case "zh": return .traditionalChinese
-            case "ja": return .japanese
-            default: continue
+        let parts = (preferredLanguages.first ?? "en").lowercased()
+            .replacingOccurrences(of: "_", with: "-").split(separator: "-")
+        switch parts.first {
+        case "en": return .english
+        case "ja": return .japanese
+        case "zh":
+            if parts.contains("hans") { return .english }
+            if parts.contains("hant") || parts.contains("tw") || parts.contains("hk") || parts.contains("mo") || parts.count == 1 {
+                return .traditionalChinese
             }
+            return .english
+        default: return .english
         }
-        return .english
     }
 }
 
