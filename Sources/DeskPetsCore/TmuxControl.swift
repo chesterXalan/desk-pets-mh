@@ -58,4 +58,13 @@ public enum TmuxControl {
         run(defaultCLI, ["-S", location.socketPath, "switch-client", "-E", "-c", client.tty,
                          "-t", location.paneId]) != nil
     }
+
+    // 使用 client 目前的 session，而非即將切換的 pane，取得外層終端現有的標題。
+    public static func terminalTitle(for location: TmuxLocation, client: TmuxClient,
+                                     run: (String, [String]) -> Data? = SessionNamer.run) -> String? {
+        guard let data = run(defaultCLI, ["-S", location.socketPath, "display-message", "-p", "-c", client.tty,
+                                         "-t", client.sessionId, "#{?set-titles,#{T:set-titles-string},}"]) else { return nil }
+        let title = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
+    }
 }

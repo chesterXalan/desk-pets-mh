@@ -52,4 +52,24 @@ import Testing
         #expect(calls == [["-S", "/tmp/pets work/socket", "switch-client", "-E", "-c", "/dev/ttys003", "-t", "%42"]])
         #expect(!TmuxControl.focus(location, client: client) { _, _ in nil })
     }
+
+    @Test func terminalTitleUsesClientsCurrentSessionBeforePaneSwitch() {
+        let location = TmuxLocation(socketPath: "/tmp/pets work/socket", paneId: "%42")
+        let client = TmuxClient(pid: 12, tty: "/dev/ttys003", sessionId: "$2", activity: 200)
+        var calls: [[String]] = []
+        let title = TmuxControl.terminalTitle(for: location, client: client) { _, args in
+            calls.append(args)
+            return Data("  current session · ✳ Project\n".utf8)
+        }
+        #expect(title == "current session · ✳ Project")
+        #expect(calls == [["-S", "/tmp/pets work/socket", "display-message", "-p", "-c", "/dev/ttys003",
+                          "-t", "$2", "#{?set-titles,#{T:set-titles-string},}"]])
+    }
+
+    @Test func disabledTitlesOrFailedQueryDoNotInventATitle() {
+        let location = TmuxLocation(socketPath: "/tmp/socket", paneId: "%42")
+        let client = TmuxClient(pid: 12, tty: "/dev/ttys003", sessionId: "$1", activity: 200)
+        #expect(TmuxControl.terminalTitle(for: location, client: client) { _, _ in Data("\n".utf8) } == nil)
+        #expect(TmuxControl.terminalTitle(for: location, client: client) { _, _ in nil } == nil)
+    }
 }

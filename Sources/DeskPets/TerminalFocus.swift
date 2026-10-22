@@ -20,14 +20,7 @@ enum TerminalFocus {
                 bringToFront(app)
                 completion?(true)
             } catch {
-                if completion == nil {
-                    let alert = NSAlert()
-                    alert.messageText = L.t("error.terminalFocus")
-                    alert.informativeText = L.error(error)
-                    NSApplication.shared.activate()
-                    alert.runModal()
-                }
-                completion?(false)
+                report(error, completion: completion)
             }
             return
         }
@@ -46,25 +39,49 @@ enum TerminalFocus {
     }
 
     private static func focusTmux(_ location: TmuxLocation, completion: (@Sendable (Bool) -> Void)?) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let clients = TmuxControl.clients(for: location)
-            DispatchQueue.main.async {
-                guard let (client, app) = clients.lazy.compactMap({ client in
-                    hostApp(of: client.pid).map { (client, $0) }
-                }).first else {
+        Task {
+            let clients = await Task.detached { TmuxControl.clients(for: location) }.value
+            guard let (client, app) = clients.lazy.compactMap({ client in
+                hostApp(of: client.pid).map { (client, $0) }
+            }).first else {
+                NSSound.beep()
+                completion?(false)
+                return
+            }
+            do {
+                var terminalID: UUID?
+                if app.bundleIdentifier == GhosttyControl.bundleIdentifier {
+                    let (directory, title) = await Task.detached {
+                        (ProcessTable.cwd(client.pid), TmuxControl.terminalTitle(for: location, client: client))
+                    }.value
+                    guard let directory else { throw GhosttyFocusError.notFound }
+                    // 換 pane 會改變標題，必須先記住外層 Ghostty 分頁的穩定 ID。
+                    terminalID = try GhosttyAutomation.target(directory: directory, title: title).id
+                }
+                let switched = await Task.detached { TmuxControl.focus(location, client: client) }.value
+                guard switched else {
                     NSSound.beep()
                     completion?(false)
                     return
                 }
-                DispatchQueue.global(qos: .userInitiated).async {
-                    let switched = TmuxControl.focus(location, client: client)
-                    DispatchQueue.main.async {
-                        if switched { bringToFront(app) } else { NSSound.beep() }
-                        completion?(switched)
-                    }
-                }
+                if let terminalID { try GhosttyAutomation.focus(terminalID: terminalID) }
+                bringToFront(app)
+                completion?(true)
+            } catch {
+                report(error, completion: completion)
             }
         }
+    }
+
+    private static func report(_ error: Error, completion: (@Sendable (Bool) -> Void)?) {
+        if completion == nil {
+            let alert = NSAlert()
+            alert.messageText = L.t("error.terminalFocus")
+            alert.informativeText = L.error(error)
+            NSApplication.shared.activate()
+            alert.runModal()
+        }
+        completion?(false)
     }
 
     /// The nearest ancestor that is a regular (Dock) app, e.g. cmux for claude → zsh → login → cmux.

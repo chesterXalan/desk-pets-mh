@@ -37,8 +37,8 @@ Double-click a pet or choose **Show Terminal** to focus its session. For native 
 and macOS Automation permission are required. DeskPets matches the session's working directory, then its
 title if several terminals share that directory. If both are ambiguous, select the tab manually.
 See [Ghostty's AppleScript API](https://ghostty.org/docs/features/applescript).
-For tmux, the pane is selected through tmux; with multiple native Ghostty tabs, you may still need to
-select the tab hosting the tmux client.
+For tmux inside Ghostty, DeskPets identifies the client's Ghostty tab before switching panes, then focuses
+that tab. It uses the client's working directory and existing tmux terminal title; tmux settings are unchanged.
 
 ## Add characters
 

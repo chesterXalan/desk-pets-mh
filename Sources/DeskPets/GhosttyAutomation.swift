@@ -4,6 +4,10 @@ import Foundation
 @MainActor
 enum GhosttyAutomation {
     static func focus(directory: String, title: String? = nil) throws {
+        try focus(terminalID: target(directory: directory, title: title).id)
+    }
+
+    static func target(directory: String, title: String? = nil) throws -> GhosttyTerminal {
         let result = try execute("""
             tell application id "com.mitchellh.ghostty"
                 set surfaces to {}
@@ -21,11 +25,14 @@ enum GhosttyAutomation {
                   let title = row.atIndex(3)?.stringValue else { throw GhosttyFocusError.unavailable }
             terminals.append(GhosttyTerminal(id: id, directory: directory, title: title))
         }
-        let target = try GhosttyControl.target(directory: directory, title: title, terminals: terminals)
+        return try GhosttyControl.target(directory: directory, title: title, terminals: terminals)
+    }
+
+    static func focus(terminalID: UUID) throws {
         // Only a validated UUID enters the script; paths and terminal titles never become code.
         _ = try execute("""
             tell application id "com.mitchellh.ghostty"
-                focus (first terminal whose id is "\(target.id.uuidString)")
+                focus (first terminal whose id is "\(terminalID.uuidString)")
             end tell
             """)
     }
