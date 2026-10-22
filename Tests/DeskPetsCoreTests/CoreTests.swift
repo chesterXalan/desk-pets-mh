@@ -582,7 +582,7 @@ private func temporaryDirectory() throws -> URL {
         #expect(names[sessions[1].id] == "Mochi shop")
         #expect(names[sessions[2].id] == "AI two")
         #expect(names[sessions[3].id] == nil)
-        #expect(sessions[3].displayName == "app · 4")
+        #expect(sessions[3].displayName == "app · PID 4")
 
         // Within the cache windows neither cmux nor the transcripts are read again. Transcripts are append-only.
         let handle = try FileHandle(forWritingTo: folder.appendingPathComponent("\(aiOnly).jsonl"))

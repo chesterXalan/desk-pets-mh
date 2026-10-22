@@ -78,8 +78,8 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
         return name.isEmpty || name == "/" ? cwd : name
     }
 
-    /// "folder · pid": always unique, shown under the friendly name.
-    public var location: String { "\(folderName) · \(pid)" }
+    /// 目錄與明確標示的 PID，供工作階段列表辨識。
+    public var location: String { "\(folderName) · PID \(pid)" }
 
     /// The friendly name (/rename, cmux tab, or AI title) when known, else the location.
     public var displayName: String {

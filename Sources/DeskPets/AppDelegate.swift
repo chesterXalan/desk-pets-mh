@@ -50,6 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return false
     }
 
+    func applicationDidChangeScreenParameters(_ notification: Notification) {
+        controller.repositionPets()
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         showItem.state = controller.config.showPets ? .on : .off
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off

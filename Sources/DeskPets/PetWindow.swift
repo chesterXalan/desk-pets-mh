@@ -108,6 +108,7 @@ final class PetWindowController: NSObject, NSWindowDelegate {
         if panel.frame.width != size {
             panel.setFrame(NSRect(origin: panel.frame.origin, size: NSSize(width: size, height: size)), display: true)
         }
+        keepOnScreen()
         petView.setState(session.state)
         let next = GIFAnimation.load(character.gif(for: session.state))
         if next !== animation || self.animationDuration != animationDuration {
@@ -115,9 +116,16 @@ final class PetWindowController: NSObject, NSWindowDelegate {
             self.animationDuration = animationDuration
             restartAnimation()
         }
-        bubble.text = session.title == nil
-            ? "\(session.location)\n\(session.provider.rawValue) · \(stateName(session.state))"
-            : "\(session.displayName)\n\(session.location) · \(stateName(session.state))"
+        let title = session.title.flatMap { $0.isEmpty ? nil : $0 }
+        let detail = title == nil ? session.provider.rawValue : session.folderName
+        bubble.text = "\(title ?? session.folderName)\n\(detail) · \(stateName(session.state))"
+    }
+
+    func keepOnScreen() {
+        let origin = PetPlacement.visibleOrigin(for: panel.frame, screens: NSScreen.screens.map(\.visibleFrame))
+        guard origin != panel.frame.origin else { return }
+        panel.setFrameOrigin(origin)
+        onMoved?(bindingId, origin)
     }
 
     func show() {

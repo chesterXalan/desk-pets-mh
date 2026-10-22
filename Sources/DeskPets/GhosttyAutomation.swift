@@ -4,10 +4,10 @@ import Foundation
 @MainActor
 enum GhosttyAutomation {
     static func focus(directory: String, title: String? = nil) throws {
-        try focus(terminalID: target(directory: directory, title: title).id)
+        try focus(terminalID: target(directory: directory, title: title, allowTitleFallback: true).id)
     }
 
-    static func target(directory: String, title: String? = nil) throws -> GhosttyTerminal {
+    static func target(directory: String, title: String? = nil, allowTitleFallback: Bool = false) throws -> GhosttyTerminal {
         let result = try execute("""
             tell application id "com.mitchellh.ghostty"
                 set surfaces to {}
@@ -25,7 +25,8 @@ enum GhosttyAutomation {
                   let title = row.atIndex(3)?.stringValue else { throw GhosttyFocusError.unavailable }
             terminals.append(GhosttyTerminal(id: id, directory: directory, title: title))
         }
-        return try GhosttyControl.target(directory: directory, title: title, terminals: terminals)
+        return try GhosttyControl.target(directory: directory, title: title, terminals: terminals,
+                                         allowTitleFallback: allowTitleFallback)
     }
 
     static func focus(terminalID: UUID) throws {

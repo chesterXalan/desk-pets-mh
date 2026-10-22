@@ -180,6 +180,10 @@ final class AppController: ObservableObject {
 
     // MARK: - Bindings
 
+    func repositionPets() {
+        for pet in pets.values { pet.keepOnScreen() }
+    }
+
     func binding(for session: AgentSession) -> PetBinding? {
         config.bindings.first { resolved[$0.id] == session.id }
     }
