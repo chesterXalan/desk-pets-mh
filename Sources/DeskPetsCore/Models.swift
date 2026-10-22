@@ -53,7 +53,7 @@ public struct AgentSession: Identifiable, Equatable, Sendable {
     /// The cmux tab hosting the session, read from the process environment.
     public var cmux: CmuxLocation?
     public var tmux: TmuxLocation?
-    /// Session id from `--session-id` / `--resume`, used before any hook has fired.
+    /// 啟動參數中的對話 ID（`--session-id`、`--resume` 或 Codex `resume UUID`）。
     public var launchSessionId: String?
 
     public init(provider: Provider, pid: Int32, startTime: Double, cwd: String,

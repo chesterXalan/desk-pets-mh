@@ -134,8 +134,12 @@ public enum AgentClassifier {
         return nil
     }
 
-    /// The session id passed on the command line (`--session-id X`, `--resume X`, `-r X`), if any.
+    /// 從啟動參數取得對話 ID，包含 Codex 的 `resume UUID`。
     public static func sessionId(arguments: [String]) -> String? {
+        if arguments.count > 2, (arguments[0] as NSString).lastPathComponent == "codex",
+           arguments[1] == "resume", UUID(uuidString: arguments[2]) != nil {
+            return arguments[2].lowercased()
+        }
         for (index, argument) in arguments.enumerated() where index + 1 < arguments.count {
             if ["--session-id", "--resume", "-r"].contains(argument), UUID(uuidString: arguments[index + 1]) != nil {
                 return arguments[index + 1].lowercased()

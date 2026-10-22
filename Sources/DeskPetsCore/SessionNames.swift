@@ -149,9 +149,7 @@ public final class SessionNamer: @unchecked Sendable {
         var names: [String: String] = [:]
         var used = Set<String>()
         for session in sessions {
-            let record = records
-                .filter { $0.provider == session.provider && $0.pid == session.pid && abs($0.pidStart - session.startTime) < 2 }
-                .max { $0.updatedAt < $1.updatedAt }
+            let record = SessionMerger.matchingRecord(for: session, records: records)
             var titles = TranscriptTitles()
             if session.provider == .claude, let url = transcriptURL(for: session, record: record) {
                 used.insert(url.path)

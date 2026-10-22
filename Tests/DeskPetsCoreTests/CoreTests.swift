@@ -54,6 +54,55 @@ private func temporaryDirectory() throws -> URL {
 }
 
 @Suite struct StateMergeTests {
+    @Test func resumedCodexMatchesBackendBySessionId() throws {
+        let id = "ba41fa31-c0a7-42d7-b5d1-59516579b291"
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a", launchSessionId: id)
+        let records = [
+            HookRecord(provider: .codex, sessionId: id, state: .working, event: "PreToolUse", cwd: "/a",
+                       pid: 10, pidStart: 50, title: "Resumed session", updatedAt: 101),
+            HookRecord(provider: .codex, sessionId: "another-session", state: .waiting, event: "PermissionRequest",
+                       cwd: "/a", pid: 10, pidStart: 50, updatedAt: 102),
+            HookRecord(provider: .claude, sessionId: id, state: .idle, event: "Stop", cwd: "/a",
+                       pid: 30, pidStart: 90, updatedAt: 103),
+        ]
+        let merged = try #require(SessionMerger.merge([session], records: records).first)
+        #expect(merged.state == .working)
+        #expect(merged.sessionId == id)
+        #expect(merged.title == "Resumed session")
+        #expect(merged.pid == session.pid)
+        let names = SessionNamer(home: try temporaryDirectory()).names(for: [session], records: records)
+        #expect(names[session.id] == "Resumed session")
+    }
+
+    @Test func resumedCodexRejectsStaleAndUnidentifiedBackendRecords() {
+        let id = "ba41fa31-c0a7-42d7-b5d1-59516579b291"
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a", launchSessionId: id)
+        var record = HookRecord(provider: .codex, sessionId: id, state: .working, event: "PreToolUse",
+                                cwd: "/a", pid: 10, pidStart: 50, updatedAt: 99)
+        #expect(SessionMerger.merge([session], records: [record])[0].state == .unknown)
+        record.updatedAt = 101
+        var unidentified = session
+        unidentified.launchSessionId = nil
+        #expect(SessionMerger.merge([unidentified], records: [record])[0].state == .unknown)
+        var claude = session
+        claude.provider = .claude
+        record.provider = .claude
+        #expect(SessionMerger.merge([claude], records: [record])[0].state == .unknown)
+    }
+
+    @Test func directProcessMatchTakesPrecedenceOverResumedSession() {
+        let session = AgentSession(provider: .codex, pid: 20, startTime: 100, cwd: "/a", launchSessionId: "resumed")
+        let records = [
+            HookRecord(provider: .codex, sessionId: "current", state: .idle, event: "Stop", cwd: "/a",
+                       pid: 20, pidStart: 100, updatedAt: 101),
+            HookRecord(provider: .codex, sessionId: "resumed", state: .working, event: "PreToolUse", cwd: "/a",
+                       pid: 10, pidStart: 50, updatedAt: 102),
+        ]
+        let merged = SessionMerger.merge([session], records: records)[0]
+        #expect(merged.state == .idle)
+        #expect(merged.sessionId == "current")
+    }
+
     @Test func latestMatchingRecordWins() {
         let session = AgentSession(provider: .claude, pid: 10, startTime: 100, cwd: "/a")
         let records = [
@@ -319,6 +368,17 @@ private func temporaryDirectory() throws -> URL {
         #expect(AgentClassifier.sessionId(arguments: ["claude", "--session-id", "d95385b3-f96a-42d1-af1c-227ee3e08650", "-x"]) == "d95385b3-f96a-42d1-af1c-227ee3e08650")
         #expect(AgentClassifier.sessionId(arguments: ["claude", "--resume"]) == nil)
         #expect(AgentClassifier.sessionId(arguments: ["claude", "--resume", "not-a-uuid"]) == nil)
+    }
+
+    @Test func codexResumeSessionIdFromArguments() {
+        let id = "BA41FA31-C0A7-42D7-B5D1-59516579B291"
+        #expect(AgentClassifier.sessionId(arguments: ["codex", "resume", id]) == id.lowercased())
+        #expect(AgentClassifier.sessionId(arguments: ["/usr/local/bin/codex", "resume", id, "Continue"]) == id.lowercased())
+        #expect(AgentClassifier.sessionId(arguments: ["codex", "resume", "--last"]) == nil)
+        #expect(AgentClassifier.sessionId(arguments: ["codex", "resume"]) == nil)
+        #expect(AgentClassifier.sessionId(arguments: ["codex", "fork", id]) == nil)
+        #expect(AgentClassifier.sessionId(arguments: ["codex", "--model", "resume", id]) == nil)
+        #expect(AgentClassifier.sessionId(arguments: ["claude", "resume", id]) == nil)
     }
 
     @Test func surfaceTitlesFromTree() {

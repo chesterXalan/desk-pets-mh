@@ -110,14 +110,25 @@ public enum HookEvents {
 }
 
 public enum SessionMerger {
-    /// Attaches the newest matching hook record (same pid and start time) to each detected process.
+    /// 優先對應程序；Codex 背景程序的事件可透過明確的 resume 對話 ID 對應。
+    static func matchingRecord(for session: AgentSession, records: [HookRecord]) -> HookRecord? {
+        let candidates = records.filter { $0.provider == session.provider }
+        if let direct = candidates
+            .filter({ $0.pid == session.pid && abs($0.pidStart - session.startTime) < 2 })
+            .max(by: { $0.updatedAt < $1.updatedAt }) {
+            return direct
+        }
+        guard session.provider == .codex, let id = session.launchSessionId, !id.isEmpty else { return nil }
+        return candidates
+            .filter { $0.sessionId.lowercased() == id.lowercased() && $0.updatedAt >= session.startTime }
+            .max { $0.updatedAt < $1.updatedAt }
+    }
+
+    /// 將最新的對應事件套用至前景 CLI，保留供終端切換使用的原始 PID。
     public static func merge(_ sessions: [AgentSession], records: [HookRecord]) -> [AgentSession] {
         sessions.map { session in
             var session = session
-            let match = records
-                .filter { $0.provider == session.provider && $0.pid == session.pid && abs($0.pidStart - session.startTime) < 2 }
-                .max { $0.updatedAt < $1.updatedAt }
-            if let match {
+            if let match = matchingRecord(for: session, records: records) {
                 session.state = match.state == .exited ? .unknown : match.state
                 session.sessionId = match.sessionId.isEmpty ? nil : match.sessionId
                 session.title = match.title
