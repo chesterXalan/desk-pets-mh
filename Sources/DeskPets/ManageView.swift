@@ -324,9 +324,9 @@ private struct HooksTab: View {
             if !ui.message.isEmpty {
                 Text(ui.message).font(.caption.monospaced()).textSelection(.enabled)
             }
-            Spacer()
         }
         .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .onAppear { app.refreshHookStatus() }
     }
 
