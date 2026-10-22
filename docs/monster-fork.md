@@ -36,8 +36,8 @@ GIF 為建置產物，保留在 `.build/` 與 App 內，不需要版控
 `.app`、ZIP、`.build/`、`build/` 也不放進 Git
 舊三隻角色與其產圖工具已移除
 
-建議在自己的遠端倉庫保存此分支，上游倉庫只用於追蹤原專案更新
-建立遠端或推送前，再決定 GitHub／Gitea 與可見性；目前未變更遠端設定
+公開倉庫：[chesterXalan/desk-pets-mh](https://github.com/chesterXalan/desk-pets-mh)
+`origin` 指向魔改版倉庫；原作者的 [youngOman/desk-pets](https://github.com/youngOman/desk-pets) 作為 `upstream`，供追蹤上游更新
 
 ## 終端切換
 

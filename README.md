@@ -1,6 +1,6 @@
-# Desk Pets · 魔物桌寵
+# Desk Pets MH · 魔物桌寵
 
-本機魔改版：八隻《魔物獵人》角色、手動播放速度與 tmux 切換
+以 [youngOman/desk-pets](https://github.com/youngOman/desk-pets) 為基礎的魔改版：八隻《魔物獵人》角色、手動播放速度與 tmux 切換
 完整操作與版控安排請看 [本機魔物版說明](docs/monster-fork.md)
 
 Little pixel pets that sit on your macOS desktop. Each pet is bound to one Claude Code or Codex
@@ -39,6 +39,8 @@ session and shows at a glance whether that session is **working**, **waiting for
 需要 Apple Silicon Mac、macOS 14+、Swift 6（Command Line Tools 即可）與 FFmpeg
 
 ```sh
+git clone https://github.com/chesterXalan/desk-pets-mh.git
+cd desk-pets-mh
 brew install ffmpeg
 make app          # 產生 build/DeskPets.app
 make run          # 建置並開啟
