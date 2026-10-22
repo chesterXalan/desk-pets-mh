@@ -16,7 +16,7 @@ enum TerminalFocus {
         }
         if app.bundleIdentifier == GhosttyControl.bundleIdentifier {
             do {
-                try GhosttyAutomation.focus(directory: session.cwd)
+                try GhosttyAutomation.focus(directory: session.cwd, title: session.title)
                 bringToFront(app)
                 completion?(true)
             } catch {

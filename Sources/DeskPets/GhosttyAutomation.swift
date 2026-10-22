@@ -3,12 +3,12 @@ import Foundation
 
 @MainActor
 enum GhosttyAutomation {
-    static func focus(directory: String) throws {
+    static func focus(directory: String, title: String? = nil) throws {
         let result = try execute("""
             tell application id "com.mitchellh.ghostty"
                 set surfaces to {}
                 repeat with surface in terminals
-                    set end of surfaces to {id of surface, working directory of surface}
+                    set end of surfaces to {id of surface, working directory of surface, name of surface}
                 end repeat
                 return surfaces
             end tell
@@ -17,10 +17,11 @@ enum GhosttyAutomation {
         for index in 0..<result.numberOfItems {
             guard let row = result.atIndex(index + 1),
                   let idString = row.atIndex(1)?.stringValue, let id = UUID(uuidString: idString),
-                  let directory = row.atIndex(2)?.stringValue else { throw GhosttyFocusError.unavailable }
-            terminals.append(GhosttyTerminal(id: id, directory: directory))
+                  let directory = row.atIndex(2)?.stringValue,
+                  let title = row.atIndex(3)?.stringValue else { throw GhosttyFocusError.unavailable }
+            terminals.append(GhosttyTerminal(id: id, directory: directory, title: title))
         }
-        let target = try GhosttyControl.target(directory: directory, terminals: terminals)
+        let target = try GhosttyControl.target(directory: directory, title: title, terminals: terminals)
         // Only a validated UUID enters the script; paths and terminal titles never become code.
         _ = try execute("""
             tell application id "com.mitchellh.ghostty"

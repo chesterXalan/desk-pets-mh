@@ -34,8 +34,9 @@ Settings apply immediately. Turn off the duration override to use each GIF's ori
 Size is the base display size; per-character scale adjustments keep monsters visually balanced.
 
 Double-click a pet or choose **Show Terminal** to focus its session. For native Ghostty tabs, Ghostty 1.3+
-and macOS Automation permission are required. DeskPets matches the session's working directory; if several
-terminals use that directory, it asks you to select the tab manually. See [Ghostty's AppleScript API](https://ghostty.org/docs/features/applescript).
+and macOS Automation permission are required. DeskPets matches the session's working directory, then its
+title if several terminals share that directory. If both are ambiguous, select the tab manually.
+See [Ghostty's AppleScript API](https://ghostty.org/docs/features/applescript).
 For tmux, the pane is selected through tmux; with multiple native Ghostty tabs, you may still need to
 select the tab hosting the tmux client.
 

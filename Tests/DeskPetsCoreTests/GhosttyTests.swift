@@ -3,6 +3,39 @@ import Testing
 @testable import DeskPetsCore
 
 @Suite struct GhosttyTests {
+    @Test(arguments: ["✳ Monster project", "⠂ Monster project", "⠋ Monster project  "])
+    func distinguishesSameDirectoryByCompleteSessionTitle(_ terminalTitle: String) throws {
+        let expected = GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: terminalTitle)
+        let terminals = [GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "Other project"), expected]
+        #expect(try GhosttyControl.target(directory: "/tmp/project", title: "Monster project", terminals: terminals) == expected)
+    }
+
+    @Test(arguments: ["", "⠂", "Monster", "Missing project"])
+    func emptyOrPartialTitlesNeverChooseAnArbitraryTab(_ title: String) {
+        let terminals = [GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "Monster project"),
+                         GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "Other project")]
+        #expect(throws: GhosttyFocusError.ambiguous) {
+            try GhosttyControl.target(directory: "/tmp/project", title: title, terminals: terminals)
+        }
+    }
+
+    @Test func duplicateNormalizedTitlesRemainAmbiguous() {
+        let terminals = [GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "✳ Monster project"),
+                         GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "⠂ Monster project")]
+        #expect(throws: GhosttyFocusError.ambiguous) {
+            try GhosttyControl.target(directory: "/tmp/project", title: "Monster project", terminals: terminals)
+        }
+    }
+
+    @Test func matchingTitleInAnotherDirectoryDoesNotOverrideDirectory() throws {
+        let expected = GhosttyTerminal(id: UUID(), directory: "/tmp/project", title: "✳ Monster project")
+        let terminals = [GhosttyTerminal(id: UUID(), directory: "/tmp/other", title: "Monster project"), expected]
+        #expect(try GhosttyControl.target(directory: "/tmp/project", title: "Monster project", terminals: terminals) == expected)
+        #expect(throws: GhosttyFocusError.notFound) {
+            try GhosttyControl.target(directory: "/tmp/missing", title: "Monster project", terminals: terminals)
+        }
+    }
+
     @Test func selectsUniqueDirectoryAcrossTabsAndSplits() throws {
         let expected = GhosttyTerminal(id: UUID(), directory: "/tmp/pets/project")
         let terminals = [GhosttyTerminal(id: UUID(), directory: "/tmp/other"), expected]

@@ -68,4 +68,4 @@
 "error.ghosttyPermission" = "「システム設定 → プライバシーとセキュリティ → オートメーション」で DeskPets による Ghostty の操作を許可してから、もう一度お試しください。";
 "error.ghosttyUnavailable" = "Ghostty がオートメーションに応答しませんでした。Ghostty 1.3 以降を使用し、AppleScript サポートを有効にして、もう一度お試しください。";
 "error.ghosttyNotFound" = "このセッションの作業ディレクトリに一致する Ghostty ターミナルがありません。手動でタブを選び、Ghostty のシェル統合が有効か確認してください。";
-"error.ghosttyAmbiguous" = "同じ作業ディレクトリを使う Ghostty ターミナルが複数あります。手動でタブを選んでください。Ghostty 1.3 は識別に必要なプロセス ID を公開していません。";
+"error.ghosttyAmbiguous" = "同じ作業ディレクトリを使う Ghostty ターミナルが複数あり、セッション名でも識別できません。手動でタブを選んでください。";

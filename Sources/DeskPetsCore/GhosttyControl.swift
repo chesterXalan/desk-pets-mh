@@ -3,10 +3,12 @@ import Foundation
 public struct GhosttyTerminal: Equatable, Sendable {
     public var id: UUID
     public var directory: String
+    public var title: String
 
-    public init(id: UUID, directory: String) {
+    public init(id: UUID, directory: String, title: String = "") {
         self.id = id
         self.directory = directory
+        self.title = title
     }
 }
 
@@ -21,11 +23,17 @@ public enum GhosttyControl {
     public static let bundleIdentifier = "com.mitchellh.ghostty"
 
     // Ghostty 1.3 exposes a surface's directory, but not its PID or TTY.
-    public static func target(directory: String, terminals: [GhosttyTerminal]) throws -> GhosttyTerminal {
+    public static func target(directory: String, title: String? = nil,
+                              terminals: [GhosttyTerminal]) throws -> GhosttyTerminal {
         guard let directory = canonicalDirectory(directory) else { throw GhosttyFocusError.notFound }
         let matches = terminals.filter { canonicalDirectory($0.directory) == directory }
         guard let target = matches.first else { throw GhosttyFocusError.notFound }
-        guard matches.count == 1 else { throw GhosttyFocusError.ambiguous }
+        if matches.count == 1 { return target }
+        // CLI 標題會帶有狀態符號；只接受同目錄內唯一的完整標題配對。
+        let title = title.map(CmuxTree.cleanTitle) ?? ""
+        guard !title.isEmpty else { throw GhosttyFocusError.ambiguous }
+        let titled = matches.filter { CmuxTree.cleanTitle($0.title) == title }
+        guard titled.count == 1, let target = titled.first else { throw GhosttyFocusError.ambiguous }
         return target
     }
 

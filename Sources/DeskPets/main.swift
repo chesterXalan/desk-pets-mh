@@ -3,12 +3,15 @@ import DeskPetsCore
 
 // `DeskPets focus-session <pid>` runs the same code as double-clicking that session's pet.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "focus-session", let pid = Int32(CommandLine.arguments[2]) {
-    guard let session = SessionScanner.scan().first(where: { $0.pid == pid }) else {
+    guard var session = SessionScanner.scan().first(where: { $0.pid == pid }) else {
         FileHandle.standardError.write(Data("error: no claude/codex session with pid \(pid)\n".utf8))
         exit(1)
     }
+    let paths = AppPaths.current()
+    session.title = SessionNamer(home: paths.home).names(
+        for: [session], records: HookEvents.readAll(from: paths.sessions))[session.id]
     MainActor.assumeIsolated {
-        TerminalFocus.focus(session) { switched in
+        TerminalFocus.focus(session) { [session] switched in
             if session.tmux != nil {
                 print(switched ? "switched tmux pane and activated host app" : "could not focus tmux pane")
             } else {
